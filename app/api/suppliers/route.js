@@ -1,20 +1,28 @@
-import { ObjectId } from 'mongodb';
-import { getDb } from '@/lib/db';
+import { connectDB } from '@/lib/db';
 import { wrap, HttpError, body } from '@/lib/http';
+import { Supplier } from '@/models';
 export const dynamic = 'force-dynamic';
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 async function save(req, isNew) {
-  const col = (await getDb()).collection('suppliers');
   const b = await body(req);
   const name = String(b.name || '').trim();
   if (!name) throw new HttpError(400, 'Supplier name is required');
   const data = { name, phone: b.phone || '', address: b.address || '' };
-  const dup = await col.findOne({ name: { $regex: '^' + esc(name) + '$', $options: 'i' }, ...(b._id ? { _id: { $ne: new ObjectId(b._id) } } : {}) });
+  const dup = await Supplier
+    .findOne({ name: { $regex: '^' + esc(name) + '$', $options: 'i' }, ...(b._id ? { _id: { $ne: b._id } } : {}) })
+    .lean();
   if (dup) throw new HttpError(400, 'Supplier already exists');
-  if (isNew) { const r = await col.insertOne(data); return Response.json({ ok: true, supplier: { _id: r.insertedId, ...data } }); }
-  await col.updateOne({ _id: new ObjectId(b._id) }, { $set: data });
+  if (isNew) {
+    const doc = await Supplier.create(data);
+    return Response.json({ ok: true, supplier: { ...data, _id: doc._id } });
+  }
+  await Supplier.updateOne({ _id: b._id }, { $set: data });
   return Response.json({ ok: true });
 }
-export const GET = wrap(async () => Response.json(await (await getDb()).collection('suppliers').find().sort({ name: 1 }).toArray()));
+export const GET = wrap(async () => {
+  await connectDB();
+  return Response.json(await Supplier.find().sort({ name: 1 }).lean());
+});
 export const POST = wrap((req) => save(req, true));
 export const PUT = wrap((req) => save(req, false));

@@ -1,5 +1,8 @@
-import { getDb } from '@/lib/db';
-import { wrap, HttpError, body } from '@/lib/http';
-export const dynamic = 'force-dynamic';
+import { connectDB } from '@/lib/db';
+import { wrap } from '@/lib/http';
 import { nextBillNo } from '@/lib/billService';
-export const GET = wrap(async () => Response.json({ nextBillNo: await nextBillNo(await getDb()) }));
+export const dynamic = 'force-dynamic';
+export const GET = wrap(async () => {
+  await connectDB();
+  return Response.json({ nextBillNo: await nextBillNo() });
+});

@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { getDb } from '@/lib/db';
+import { connectDB } from '@/lib/db';
 import { wrap, HttpError } from '@/lib/http';
+import { Bill } from '@/models';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,11 +12,11 @@ const TYPES = {
 };
 
 async function findFile(sp) {
-  const db = await getDb();
+  await connectDB();
   const billNo = Number(sp.get('bill'));
-  const bill = await db.collection('bills').findOne({ billNo });
+  const bill = await Bill.findOne({ billNo }).lean();
   const f = bill && (bill.files || []).find((x) => x.savedName === sp.get('name'));
-  return { db, billNo, f };
+  return { billNo, f };
 }
 
 // GET /api/file?bill=2155&name=<savedName>   (add &download=1 to download instead of viewing)
@@ -34,10 +35,10 @@ export const GET = wrap(async (req) => {
 // DELETE /api/file?bill=2155&name=<savedName>   removes the file from disk and from the bill
 export const DELETE = wrap(async (req) => {
   const sp = new URL(req.url).searchParams;
-  const { db, billNo, f } = await findFile(sp);
+  const { billNo, f } = await findFile(sp);
   if (!f) throw new HttpError(404, 'File not found');
   try { if (fs.existsSync(f.savedPath)) fs.unlinkSync(f.savedPath); }
   catch (e) { throw new HttpError(500, 'Could not delete the file from disk: ' + e.message); }
-  await db.collection('bills').updateOne({ billNo }, { $pull: { files: { savedName: f.savedName } } });
+  await Bill.updateOne({ billNo }, { $pull: { files: { savedName: f.savedName } } });
   return Response.json({ ok: true, message: 'File deleted' });
 });

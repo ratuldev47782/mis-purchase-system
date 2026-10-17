@@ -1,29 +1,30 @@
-import { getDb, getSettings } from '@/lib/db';
+import { connectDB, getSettings } from '@/lib/db';
 import { wrap, HttpError, body } from '@/lib/http';
 import { evalExpr } from '@/lib/calc';
 import { ledgerAmount } from '@/lib/billService';
+import { Bill, LedgerEntry } from '@/models';
 
 export const dynamic = 'force-dynamic';
 
 async function load(params) {
-  const db = await getDb();
+  await connectDB();
   const billNo = Number(params.id);
-  const bill = await db.collection('bills').findOne({ billNo });
+  const bill = await Bill.findOne({ billNo }).lean();
   if (!bill) throw new HttpError(404, 'Bill not found');
-  return { db, billNo, bill, col: db.collection('bills') };
+  return { billNo, bill };
 }
 
 export const GET = wrap(async (req, { params }) => Response.json((await load(params)).bill));
 
 export const DELETE = wrap(async (req, { params }) => {
-  const { db, billNo, col } = await load(params);
-  await col.deleteOne({ billNo });
-  await db.collection('ledgerEntries').deleteMany({ billNo }); // uploaded files are NOT deleted
+  const { billNo } = await load(params);
+  await Bill.deleteOne({ billNo });
+  await LedgerEntry.deleteMany({ billNo }); // uploaded files are NOT deleted
   return Response.json({ ok: true, message: 'Bill deleted' });
 });
 
 export const PATCH = wrap(async (req, { params }) => {
-  const { db, billNo, bill, col } = await load(params);
+  const { billNo, bill } = await load(params);
   const b = await body(req);
   const set = {};
   for (const k of ['status', 'dateLabel', 'department', 'paidDate']) if (b[k] !== undefined) set[k] = String(b[k]);
@@ -37,7 +38,7 @@ export const PATCH = wrap(async (req, { params }) => {
   if (b.summaryAmountExpr !== undefined) {
     const expr = String(b.summaryAmountExpr).trim();
     if (!expr) {
-      set.summaryAmount = ledgerAmount(bill.resolution || bill.application, await getSettings(db));
+      set.summaryAmount = ledgerAmount(bill.resolution || bill.application, await getSettings());
       set.summaryAmountExpr = '';
       set.summaryManual = false;
     } else {
@@ -47,6 +48,6 @@ export const PATCH = wrap(async (req, { params }) => {
     }
   }
   set.updatedAt = new Date();
-  await col.updateOne({ billNo }, { $set: set });
-  return Response.json({ ok: true, bill: await col.findOne({ billNo }) });
+  await Bill.updateOne({ billNo }, { $set: set });
+  return Response.json({ ok: true, bill: await Bill.findOne({ billNo }).lean() });
 });

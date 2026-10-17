@@ -1,25 +1,35 @@
-import { ObjectId } from 'mongodb';
-import { getDb } from '@/lib/db';
+import { connectDB } from '@/lib/db';
 import { wrap, HttpError, body } from '@/lib/http';
+import { Bill, Category } from '@/models';
 export const dynamic = 'force-dynamic';
-const col = async () => (await getDb()).collection('categories');
-export const GET = wrap(async () => Response.json(await (await col()).find().sort({ sortOrder: 1, name: 1 }).toArray()));
+
+export const GET = wrap(async () => {
+  await connectDB();
+  return Response.json(await Category.find().sort({ sortOrder: 1, name: 1 }).lean());
+});
+
 export const POST = wrap(async (req) => {
-  const c = await col(); const name = String((await body(req)).name || '').trim();
+  await connectDB();
+  const name = String((await body(req)).name || '').trim();
   if (!name) throw new HttpError(400, 'Name is required');
-  const last = await c.find().sort({ sortOrder: -1 }).limit(1).next();
-  await c.insertOne({ name, sortOrder: (last ? last.sortOrder : 0) + 1 });
+  const last = await Category.findOne().sort({ sortOrder: -1 }).select('sortOrder').lean();
+  await Category.create({ name, sortOrder: (last ? last.sortOrder : 0) + 1 });
   return Response.json({ ok: true });
 });
+
 export const PUT = wrap(async (req) => {
-  const b = await body(req); const name = String(b.name || '').trim();
+  await connectDB();
+  const b = await body(req);
+  const name = String(b.name || '').trim();
   if (!name) throw new HttpError(400, 'Name is required');
-  await (await col()).updateOne({ _id: new ObjectId(b._id) }, { $set: { name, sortOrder: Number(b.sortOrder) || 0 } });
+  await Category.updateOne({ _id: b._id }, { $set: { name, sortOrder: Number(b.sortOrder) || 0 } });
   return Response.json({ ok: true });
 });
+
 export const DELETE = wrap(async (req) => {
+  await connectDB();
   const id = new URL(req.url).searchParams.get('id');
-  if (await (await getDb()).collection('bills').findOne({ categoryId: id })) throw new HttpError(400, 'Category is used by bills');
-  await (await col()).deleteOne({ _id: new ObjectId(id) });
+  if (await Bill.exists({ categoryId: id })) throw new HttpError(400, 'Category is used by bills');
+  await Category.deleteOne({ _id: id });
   return Response.json({ ok: true });
 });

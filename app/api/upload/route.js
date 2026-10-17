@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { getDb } from '@/lib/db';
+import { connectDB } from '@/lib/db';
 import { wrap, HttpError } from '@/lib/http';
+import { Bill } from '@/models';
 export const dynamic = 'force-dynamic';
 const ALLOWED = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
 
@@ -10,8 +11,8 @@ export const POST = wrap(async (req) => {
   const sp = new URL(req.url).searchParams;
   const billNo = Number(sp.get('bill')); const category = String(sp.get('category'));
   if (!['application', 'resolution'].includes(category)) throw new HttpError(400, 'Invalid category');
-  const db = await getDb();
-  if (!(await db.collection('bills').findOne({ billNo }))) throw new HttpError(404, 'Bill not found');
+  await connectDB();
+  if (!(await Bill.exists({ billNo }))) throw new HttpError(404, 'Bill not found');
 
   // Falls back to ./uploads inside the project when UPLOAD_DIR is not set
   const base = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
@@ -35,6 +36,6 @@ export const POST = wrap(async (req) => {
     fs.writeFileSync(savedPath, Buffer.from(await f.arrayBuffer()));
     saved.push({ category, originalName: original, savedName, savedPath, uploadedAt: new Date() });
   }
-  await db.collection('bills').updateOne({ billNo }, { $push: { files: { $each: saved } } });
+  await Bill.updateOne({ billNo }, { $push: { files: { $each: saved } } });
   return Response.json({ ok: true, message: `${saved.length} file(s) uploaded`, files: saved });
 });

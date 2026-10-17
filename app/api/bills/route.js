@@ -1,6 +1,13 @@
-import { getDb } from '@/lib/db';
-import { wrap, HttpError, body } from '@/lib/http';
-export const dynamic = 'force-dynamic';
+import { connectDB } from '@/lib/db';
+import { wrap, body } from '@/lib/http';
 import { saveBill } from '@/lib/billService';
-export const GET = wrap(async () => Response.json(await (await getDb()).collection('bills').find().sort({ date: 1, billNo: 1 }).toArray()));
-export const POST = wrap(async (req) => Response.json({ ok: true, message: 'Saved', bill: await saveBill(await getDb(), await body(req)) }));
+import { Bill } from '@/models';
+export const dynamic = 'force-dynamic';
+export const GET = wrap(async () => {
+  await connectDB();
+  return Response.json(await Bill.find().sort({ date: 1, billNo: 1 }).lean());
+});
+export const POST = wrap(async (req) => {
+  await connectDB();
+  return Response.json({ ok: true, message: 'Saved', bill: await saveBill(await body(req)) });
+});
