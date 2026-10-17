@@ -10,4 +10,4 @@ export function middleware(req) {
   url.pathname = '/login';
   return NextResponse.redirect(url);
 }
-export const config = { matcher: ['/((?!_next|favicon.ico|hkd-logo.png).*)'] };
+export const config = { matcher: ['/((?!_next|favicon.ico|HKD_LOGO.png).*)'] };

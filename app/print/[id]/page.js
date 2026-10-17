@@ -35,7 +35,7 @@ export default function Print() {
       <div className="pg">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <img src="/hkd-logo.png" alt="" height="40" onError={(e) => (e.target.style.display = 'none')} />
+            <img src="HKD_LOGO.png" alt="" height="40" onError={(e) => (e.target.style.display = 'none')} />
             <div><b style={{ fontSize: 14 }}>HKD OUTDOOR INNOVATIONS LTD</b><br />Plot #45-50, Sec#02, Karnaphuli EPZ, Chittagong.</div>
           </div>
           <b style={{ fontSize: 14 }}>No: {no}</b>

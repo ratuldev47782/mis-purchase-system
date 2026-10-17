@@ -1,11 +1,13 @@
 export default function Home() {
-  const big = { fontSize: 22, padding: '30px 50px' };
   return (
     <>
-      <h1>Dashboard</h1>
-      <div className="row" style={{ marginBottom: 20 }}>
-        <a href="/new?type=application" className="btn" style={big}>Application</a>
-        <a href="/new?type=resolution" className="btn" style={big}>Resolution</a>
+      <div className="mb-6 flex h-48 items-end rounded-xl bg-cover bg-center"
+        style={{ backgroundImage: 'linear-gradient(transparent,rgba(15,23,42,.85)),url(/HKD_Building_image.jpeg)' }}>
+        <h1 className="p-5 !mb-0 !text-white">Dashboard</h1>
+      </div>
+      <div className="row mb-5">
+        <a href="/new?type=application" className="btn !px-12 !py-8 text-xl">Application</a>
+        <a href="/new?type=resolution" className="btn !px-12 !py-8 text-xl">Resolution</a>
       </div>
       <div className="row">
         <a className="btn sec" href="/summary">Purchase Report</a>

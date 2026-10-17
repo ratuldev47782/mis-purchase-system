@@ -1,30 +1,51 @@
-body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f4f5f7;color:#111;font-size:14px}
-a{color:#1d4ed8}
-nav{background:#1f3864;padding:8px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-nav a{color:#fff;text-decoration:none}
-main{padding:16px;max-width:1300px;margin:0 auto}
-h1{font-size:20px;margin:0 0 12px}
-.card{background:#fff;border:1px solid #ddd;border-radius:6px;padding:12px;margin-bottom:12px}
-.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
-label{display:flex;flex-direction:column;font-size:12px;gap:2px}
-input,select,textarea,button{font:inherit;padding:5px 7px;border:1px solid #bbb;border-radius:4px}
-button,.btn{background:#1f3864;color:#fff;border:0;cursor:pointer;padding:7px 12px;border-radius:4px;text-decoration:none;display:inline-block}
-button.sec,.btn.sec{background:#e5e7eb;color:#111}
-button.red{background:#c00}
-table{border-collapse:collapse;width:100%;background:#fff}
-th,td{border:1px solid #444;padding:4px 6px;vertical-align:top}
-th{background:#1f3864;color:#fff}
-th.y{background:#ff0;color:#000}
-td.y{background:#ff0}
-.month td{background:#ddd;font-weight:bold;text-align:center}
-.due{background:#d00;color:#fff;cursor:pointer;text-align:center}
-.paid{background:#ff0;font-weight:bold;cursor:pointer;text-align:center}
-.cards{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap}
-.cards .card{min-width:160px;margin:0}
-.big{font-size:22px;font-weight:bold}
-.tabs button{margin-right:4px}
-.tabs button.on{background:#ff0;color:#000}
-.err{color:#c00;margin:8px 0}.ok{color:#080;margin:8px 0}
-.right{text-align:right}
-.scroll{overflow-x:auto}
-@media print{nav,.noprint{display:none!important}body{background:#fff}main{padding:0;max-width:none}}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import "tailwindcss";
+@layer base {
+  body { @apply bg-slate-100 text-slate-800 text-sm antialiased; }
+  h1 { @apply text-2xl font-bold text-slate-900 mb-4; }
+  a { @apply text-blue-600 hover:underline; }
+  ul { @apply list-disc pl-5 my-2 space-y-1; }
+  label { @apply flex flex-col gap-1 text-xs font-medium text-slate-600; }
+  input, select, textarea { @apply border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-500; }
+  input[type=checkbox], input[type=radio] { @apply w-4 h-4 p-0 accent-blue-600; }
+  table { @apply w-full border-collapse bg-white shadow-sm text-sm; }
+  th { @apply bg-slate-800 text-white text-left font-semibold px-2 py-2 border border-slate-700; }
+  td { @apply border-b border-slate-200 px-2 py-1.5 align-middle; }
+  tbody tr:hover td { @apply bg-blue-50/60; }
+}
+
+@layer components {
+  nav { @apply sticky top-0 z-40 flex flex-wrap items-center gap-5 bg-slate-900 px-6 py-2 shadow; }
+  nav a { @apply text-slate-300 hover:text-white no-underline; }
+  main { @apply max-w-7xl mx-auto p-6; }
+
+  .card { @apply bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-3; }
+  .cards { @apply grid grid-cols-2 md:grid-cols-4 gap-3 mb-3; }
+  .cards .card { @apply mb-0 text-slate-500; }
+  .big { @apply text-2xl font-bold text-slate-900; }
+  .row { @apply flex flex-wrap gap-3 items-end; }
+  .scroll { @apply overflow-auto rounded-lg border border-slate-200; }
+  .right { @apply text-right; }
+  .tabs { @apply flex flex-wrap gap-2; }
+
+  button, .btn { @apply inline-block cursor-pointer rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white no-underline hover:bg-blue-700 hover:no-underline disabled:opacity-50; }
+  .sec { @apply bg-slate-200 text-slate-700 hover:bg-slate-300; }
+  .red { @apply bg-red-600 text-white hover:bg-red-700; }
+
+  th.y { @apply bg-yellow-300 text-slate-900; }
+  td.y { @apply bg-yellow-50; }
+  .month td { @apply bg-slate-200 font-bold tracking-wide text-slate-700; }
+  .paid, .due { @apply cursor-pointer text-center font-semibold; }
+  .paid { @apply bg-green-50 text-green-700; }
+  .due { @apply bg-red-50 text-red-700; }
+  .err { @apply my-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700; }
+  .ok { @apply my-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-green-700; }
+}
+
+@media print {
+  nav, .noprint { display: none !important; }
+  body { background: #fff; }
+  main { padding: 0; max-width: none; }
+}
