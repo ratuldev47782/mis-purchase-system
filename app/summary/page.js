@@ -85,14 +85,19 @@ export default function Summary() {
                     onBlur={(e) => e.target.value !== String(b.summaryAmountExpr || b.summaryAmount) && patch(b.billNo, { summaryAmountExpr: e.target.value })} /></td>
                   <td><input className="w-full !px-1" defaultValue={b.department} onBlur={(e) => e.target.value !== (b.department || '') && patch(b.billNo, { department: e.target.value })} /></td>
                   <td className="y text-center font-semibold">{stageOf(b)}</td>
-                  <td><input list="statuses" className="w-full !px-1" defaultValue={b.status} onBlur={(e) => e.target.value !== b.status && patch(b.billNo, { status: e.target.value })} /></td>
+                  <td>
+  <select className="w-full !px-1" value={b.status} onChange={(e) => patch(b.billNo, { status: e.target.value })}>
+    {!STATUSES.includes(b.status) && <option value={b.status}>{b.status}</option>}
+    {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+  </select>
+</td>
                   <td><a href={'/bill/' + b.billNo}>{b.billNo}</a></td>
                   <td className={b.paymentStatus === 'Paid' ? 'paid' : 'due'} onClick={() => toggle(b)} title={b.paidDate ? 'Paid on ' + b.paidDate : ''}>{b.paymentStatus}</td>
                 </tr>];
             })}
           </tbody>
         </table>
-        <datalist id="statuses">{STATUSES.map((s) => <option key={s} value={s} />)}</datalist>
+        
       </div>
       {tab !== 'All' && <p><b>{tab}</b> - Total Due: {fmt(sum(due))}</p>}
     </>
