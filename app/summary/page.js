@@ -1,9 +1,16 @@
+// app/summary/page.js
+
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/client';
 import { fmt, formatDate, monthKeyOf, monthName, monthLabel } from '@/lib/calc';
+import { stageOf } from '@/lib/stage';
 
-const STATUSES = ['Pending ( File Not Given to AC Yet )', 'Painding', 'Pending', 'Done'];
+const STATUSES = [
+  'Application Scan File Uploaded', 'Resolution Scan File Uploaded',
+  'File Sent to A/C', 'File Did Not Sent to A/C',
+  'Pending ( File Not Given to AC Yet )', 'Pending', 'Done',
+];
 
 export default function Summary() {
   const [bills, setBills] = useState([]); const [tab, setTab] = useState('All');
@@ -52,26 +59,33 @@ export default function Summary() {
         <button className="sec" onClick={() => window.print()}>Print</button>
       </div>
       {err && <div className="err">{err}</div>}
-      <div className="scroll" style={{ maxHeight: '70vh' }}>
-        <table>
-          <thead style={{ position: 'sticky', top: 0 }}>
-            <tr><th className="y">SL</th><th>Purchase Date</th><th>Supplier Name</th><th>Item Description</th><th className="y">Amount</th><th>Department</th><th className="y">Application / Resulation</th><th>Status</th><th>Purchese No</th><th>Due / Paid</th></tr>
+      <div>
+        <table className="table-fixed w-full text-xs">
+          <thead>
+            <tr>
+              <th className="y w-[4%]">SL</th><th className="w-[10%]">Purchase Date</th><th className="w-[10%]">Supplier Name</th>
+              <th className="w-[21%]">Item Description</th><th className="y w-[9%]">Amount</th><th className="w-[10%]">Department</th>
+              <th className="y w-[9%]">Application / Resolution</th><th className="w-[13%]">Status</th>
+              <th className="w-[6%]">Purchase No</th><th className="w-[8%]">Due / Paid</th>
+            </tr>
           </thead>
           <tbody>
             {rows.map((b) => {
               const mk = monthKeyOf(b.date); const head = mk !== cur; cur = mk;
+              // key changes with the data, so the inputs remount and never show stale values
+              const ver = `${b.billNo}-${b.summaryAmount}-${b.itemDescription}-${b.status}-${b.department}-${b.dateLabel}`;
               return [
                 head && <tr key={'m' + mk} className="month"><td colSpan={10}>{monthName(mk).toUpperCase()}</td></tr>,
-                <tr key={b.billNo}>
-                  <td className="y"><input style={{ width: 40 }} defaultValue={b.sl} onBlur={(e) => Number(e.target.value) !== b.sl && patch(b.billNo, { sl: e.target.value })} /></td>
-                  <td><input style={{ width: 150 }} defaultValue={b.dateLabel} placeholder={formatDate(b.date)} onBlur={(e) => e.target.value !== (b.dateLabel || '') && patch(b.billNo, { dateLabel: e.target.value })} /></td>
+                <tr key={ver} className="break-words">
+                  <td className="y"><input className="w-full !px-1" defaultValue={b.sl} onBlur={(e) => Number(e.target.value) !== b.sl && patch(b.billNo, { sl: e.target.value })} /></td>
+                  <td><input className="w-full !px-1" defaultValue={b.dateLabel} placeholder={formatDate(b.date)} onBlur={(e) => e.target.value !== (b.dateLabel || '') && patch(b.billNo, { dateLabel: e.target.value })} /></td>
                   <td>{b.supplierName}</td>
-                  <td><textarea rows={2} style={{ width: 260 }} defaultValue={b.itemDescription} onBlur={(e) => e.target.value !== b.itemDescription && patch(b.billNo, { itemDescription: e.target.value })} /></td>
-                  <td className="y"><input style={{ width: 110 }} defaultValue={b.summaryAmountExpr || b.summaryAmount} title="You can type an expression like 450+950+1100"
+                  <td><textarea rows={3} className="w-full !px-1" defaultValue={b.itemDescription} onBlur={(e) => e.target.value !== b.itemDescription && patch(b.billNo, { itemDescription: e.target.value })} /></td>
+                  <td className="y"><input className="w-full !px-1" defaultValue={b.summaryAmountExpr || b.summaryAmount} title="You can type an expression like 450+950+1100"
                     onBlur={(e) => e.target.value !== String(b.summaryAmountExpr || b.summaryAmount) && patch(b.billNo, { summaryAmountExpr: e.target.value })} /></td>
-                  <td><input style={{ width: 160 }} defaultValue={b.department} onBlur={(e) => e.target.value !== (b.department || '') && patch(b.billNo, { department: e.target.value })} /></td>
-                  <td className="y">{b.stage}</td>
-                  <td><input list="statuses" style={{ width: 200 }} defaultValue={b.status} onBlur={(e) => e.target.value !== b.status && patch(b.billNo, { status: e.target.value })} /></td>
+                  <td><input className="w-full !px-1" defaultValue={b.department} onBlur={(e) => e.target.value !== (b.department || '') && patch(b.billNo, { department: e.target.value })} /></td>
+                  <td className="y text-center font-semibold">{stageOf(b)}</td>
+                  <td><input list="statuses" className="w-full !px-1" defaultValue={b.status} onBlur={(e) => e.target.value !== b.status && patch(b.billNo, { status: e.target.value })} /></td>
                   <td><a href={'/bill/' + b.billNo}>{b.billNo}</a></td>
                   <td className={b.paymentStatus === 'Paid' ? 'paid' : 'due'} onClick={() => toggle(b)} title={b.paidDate ? 'Paid on ' + b.paidDate : ''}>{b.paymentStatus}</td>
                 </tr>];

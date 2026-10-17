@@ -1,3 +1,5 @@
+// app/api/categories/route.js
+
 import { connectDB } from '@/lib/db';
 import { wrap, HttpError, body } from '@/lib/http';
 import { Bill, Category } from '@/models';

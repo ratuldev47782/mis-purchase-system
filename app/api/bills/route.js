@@ -1,3 +1,7 @@
+// app/api/bills/route.js
+
+// app/api/bills/route.js
+
 import { connectDB } from '@/lib/db';
 import { wrap, body } from '@/lib/http';
 import { saveBill } from '@/lib/billService';

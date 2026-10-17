@@ -1,3 +1,5 @@
+// app/bill/[id]/page.js
+
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -16,7 +18,14 @@ function Files({ bill, category, label, reload }) {
       const r = await fetch(`/api/upload?bill=${bill.billNo}&category=${category}`, { method: 'POST', body: fd });
       const j = await r.json().catch(() => ({}));
       setMsg(r.ok ? j.message : j.error || 'Upload failed');
-      if (r.ok) reload();
+      if (r.ok) {
+        // auto status; can be changed later in the Summary page
+        await api('/api/bills/' + bill.billNo, {
+          method: 'PATCH',
+          body: { status: category === 'application' ? 'Application Scan File Uploaded' : 'Resolution Scan File Uploaded' },
+        });
+        reload();
+      }
     } catch (x) { setMsg(x.message); }
     input.value = '';
   };

@@ -1,4 +1,5 @@
-// ---------------------------------------------------------------------------
+// models.js
+
 // ALL database schemas live in this one file, so every model and every
 // relationship is visible at a glance.
 //

@@ -1,3 +1,5 @@
+// app/api/bills/[id]/route.js
+
 import { connectDB, getSettings } from '@/lib/db';
 import { wrap, HttpError, body } from '@/lib/http';
 import { evalExpr } from '@/lib/calc';

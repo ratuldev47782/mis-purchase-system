@@ -1,3 +1,5 @@
+// app/api/suppliers/route.js
+
 import { connectDB } from '@/lib/db';
 import { wrap, HttpError, body } from '@/lib/http';
 import { Supplier } from '@/models';
