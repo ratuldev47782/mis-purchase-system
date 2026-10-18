@@ -3,11 +3,14 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { calcDoc, calcAmount, numberToWords, fmt, todayStr } from '@/lib/calc';
+import { calcDoc, calcAmount, todayStr } from '@/lib/calc';
 import { api } from '@/lib/client';
+import RequestForm from '@/app/components/RequestForm';
+import { paperRows } from '@/lib/paper';
 
 const blank = () => ({ particulars: '', unit: '', qty: '', unitPrice: '' });
 const extraInit = (x) => ({ on: !!(x && x.on), mode: (x && x.mode) || 'amount', value: x && x.value ? x.value : '' });
+const n0 = (v) => Number(v) || 0;
 
 // kind: 'application' | 'resolutionA' | 'resolutionB'. bill = existing bill (edit / parent application) or null
 function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, reloadSuppliers }) {
@@ -55,10 +58,33 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
 
   const total = calc.total;
   const advance = pay.advancePaid === '' ? total : Number(pay.advancePaid);
+
+  // ---- data for the paper form (edited side = live values, other side = saved values) ----
+  const mine = {
+    items: items.map((i) => ({ particulars: i.particulars, unit: i.unit, qty: n0(i.qty), unitPrice: n0(i.unitPrice), amount: calcAmount(i.qty, i.unitPrice) })),
+    ait: { on: ait, amount: calc.ait.amount }, vat: { ...vat, amount: calc.vat.amount }, tax: { ...tax, amount: calc.tax.amount },
+  };
+  const A = isRes ? bill?.application || null : mine;
+  const R = isRes ? mine : bill?.resolution || null;
+  const aTotal = kind === 'resolutionA' ? n0(bill?.application?.advancePaid) : advance;
+  const d = {
+    billNo: bill?.billNo || nextBillNo || '', date: head.date, applicantName: head.applicantName, sectorLine: head.sectorLine, nrb: head.nrb,
+    rows: paperRows(A, R), hasR: !!R,
+    total: isRes || !bill?.resolution ? total : bill.resolution.total,
+    aTotal, rTotal: R ? (isRes ? total : bill.resolution.total) : 0,
+    netApp: !R ? total - advance : null,
+    netRes: R ? (isRes ? aTotal - total : bill.resolution.netPayable) : 0,
+  };
+  const edit = {
+    side: isRes ? 'resolution' : 'application', lock: lockHead, head, setHead, pay, setPay, applicants,
+    items, setItem, addRow: () => items.length < 9 && setItems([...items, blank()]), delRow: (i) => setItems(items.filter((_, n) => n !== i)),
+    ait, setAit, vat, setVat, tax, setTax, calc, remarks, setRemarks, advanceEditable: kind !== 'resolutionA',
+  };
+
   return (
     <form onSubmit={submit}>
-      <div className="card row">
-        <label>Bill No<input disabled value={bill?.billNo || nextBillNo || ''} style={{ width: 90 }} /></label>
+      {/* extra data that is not printed on the paper (ledger / summary information) */}
+      <div className="card row noprint" style={{ alignItems: 'flex-end' }}>
         <label>File Name<input disabled={lockHead} value={head.fileName} onChange={H('fileName')} style={{ width: 260 }} placeholder="Processor Motherboard for CAD" /></label>
         <label>Supplier
           <select disabled={lockHead} value={head.supplierId} onChange={addSupplier}>
@@ -66,63 +92,23 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
             {suppliers.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
             <option value="__new">+ Add new supplier</option>
           </select></label>
-        <label>Date<input type="date" disabled={lockHead} value={head.date} onChange={H('date')} /></label>
-        <label>Applicant Name<input list="applicants" disabled={lockHead} value={head.applicantName} onChange={H('applicantName')} /></label>
-        <datalist id="applicants">{applicants.map((a) => <option key={a} value={a} />)}</datalist>
-        <label>Sector/Line<input disabled={lockHead} value={head.sectorLine} onChange={H('sectorLine')} style={{ width: 90 }} /></label>
-        {['n', 'r', 'b'].map((k) => (
-          <label key={k}>{k.toUpperCase()}<input disabled={lockHead} style={{ width: 30 }} value={head.nrb[k]} onChange={(e) => setHead({ ...head, nrb: { ...head.nrb, [k]: e.target.value } })} /></label>))}
-      </div>
-      <div className="card row">
-        <label style={{ flex: 1 }}>Department / For whom<input value={head.department} onChange={H('department')} placeholder='CAD(PC-1)' /></label>
+        <label>Department / For whom<input value={head.department} onChange={H('department')} placeholder="CAD(PC-1)" style={{ width: 160 }} /></label>
         <label>Ledger Month<input type="month" value={head.ledgerMonth} onChange={H('ledgerMonth')} /></label>
         <label>Category<select value={head.categoryId} onChange={H('categoryId')}>{categories.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}</select></label>
-        {!lockHead && <label>Summary date label (optional)<input value={head.dateLabel} onChange={H('dateLabel')} placeholder="1-Octobar-2026(For Octobar)" /></label>}
+        {!lockHead && <label>Summary date label (optional)<input value={head.dateLabel} onChange={H('dateLabel')} placeholder="1-October-2026(For October)" /></label>}
       </div>
 
-      <div className="card">
-        <b>{isRes ? 'Resolution items' : 'Application items'}</b>
-        <table style={{ marginTop: 6 }}>
-          <thead><tr><th>#</th><th>Particulars - Goods/Services</th><th>Unit</th><th>Qty</th><th>U/P</th><th>Amount</th><th></th></tr></thead>
-          <tbody>
-            {items.map((it, i) => (
-              <tr key={i}><td>{i + 1}</td>
-                <td><input style={{ width: '100%' }} value={it.particulars} onChange={(e) => setItem(i, 'particulars', e.target.value)} /></td>
-                <td><input style={{ width: 60 }} value={it.unit} onChange={(e) => setItem(i, 'unit', e.target.value)} /></td>
-                <td><input style={{ width: 70 }} value={it.qty} onChange={(e) => setItem(i, 'qty', e.target.value)} /></td>
-                <td><input style={{ width: 90 }} value={it.unitPrice} onChange={(e) => setItem(i, 'unitPrice', e.target.value)} /></td>
-                <td className="right">{fmt(calcAmount(it.qty, it.unitPrice))}</td>
-                <td>{items.length > 1 && <button type="button" className="sec" onClick={() => setItems(items.filter((_, n) => n !== i))}>x</button>}</td></tr>))}
-          </tbody>
-        </table>
-        {items.length < 9 && <button type="button" className="sec" style={{ marginTop: 6 }} onClick={() => setItems([...items, blank()])}>Add row</button>}
-        <div style={{ marginTop: 10 }}>
-          <div className="row">
-            <label style={{ flexDirection: 'row', gap: 6 }}><input type="checkbox" checked={ait} onChange={(e) => setAit(e.target.checked)} /> AIT(5%): {fmt(calc.ait.amount)}</label>
-            {[['VAT', vat, setVat], ['TAX', tax, setTax]].map(([n, v, set]) => (
-              <div key={n} className="row" style={{ alignItems: 'center' }}>
-                <label style={{ flexDirection: 'row', gap: 6 }}><input type="checkbox" checked={v.on} onChange={(e) => set({ ...v, on: e.target.checked })} /> {n}</label>
-                <select value={v.mode} onChange={(e) => set({ ...v, mode: e.target.value })}><option value="amount">Amount</option><option value="percent">Percent %</option></select>
-                <input style={{ width: 80 }} value={v.value} onChange={(e) => set({ ...v, value: e.target.value })} />
-                <span>= {fmt(n === 'VAT' ? calc.vat.amount : calc.tax.amount)}</span>
-              </div>))}
-          </div>
-          <p>Subtotal: <b>{fmt(calc.subtotal)}</b> &nbsp; Total: <b>{fmt(total)}</b></p>
-          <p>Total Amount: BDT {numberToWords(total)}</p>
-        </div>
+      <div className="noprint" style={{ fontSize: 12, color: '#555', margin: '4px 0 8px' }}>
+        {isRes ? 'Fill the RESOLUTION columns of the form below.' : 'Fill the APPLICATION columns of the form below.'} Blue cells are inputs, grey cells are read only.
       </div>
 
-      <div className="card row">
-        <label>(A) Total amount paid in advance (blank = Total)<input value={pay.advancePaid} disabled={kind === 'resolutionA'} onChange={(e) => setPay({ ...pay, advancePaid: e.target.value })} /></label>
-        <label>{isRes ? '(A-B)' : 'Net Payable/(refundable)'}<input disabled value={fmt(isRes ? (kind === 'resolutionA' ? bill.application.advancePaid : advance || 0) - total : total - advance)} /></label>
-        <label>Payment Needed Date<input type="date" value={pay.paymentDate} onChange={(e) => setPay({ ...pay, paymentDate: e.target.value })} /></label>
-        <label>Settle by the date of<input type="date" value={pay.settleDate} onChange={(e) => setPay({ ...pay, settleDate: e.target.value })} /></label>
-        <label>Budget Control A/C No<input value={pay.budgetAccount} onChange={(e) => setPay({ ...pay, budgetAccount: e.target.value })} /></label>
-        <label>Budget Remaining USD/BDT<input value={pay.budgetRemaining} onChange={(e) => setPay({ ...pay, budgetRemaining: e.target.value })} /></label>
+      <RequestForm d={d} edit={edit} />
+
+      {err && <div className="err" style={{ marginTop: 10 }}>{err}</div>}
+      <div className="row noprint" style={{ marginTop: 12 }}>
+        <button disabled={busy}>{busy ? 'Saving...' : 'Save'}</button>
+        <a className="btn sec" href={bill ? '/bill/' + bill.billNo : '/summary'}>Cancel</a>
       </div>
-      <div className="card"><label>{isRes ? 'Resolution Remarks' : 'Remarks'}<textarea rows={2} value={remarks} onChange={(e) => setRemarks(e.target.value)} /></label></div>
-      {err && <div className="err">{err}</div>}
-      <button disabled={busy}>{busy ? 'Saving...' : 'Save'}</button>
     </form>
   );
 }
@@ -154,7 +140,7 @@ export default function New() {
     body = (
       <>
         {!parent && !edit && (
-          <div className="card">
+          <div className="card noprint">
             <label style={{ flexDirection: 'row', gap: 6 }}><input type="radio" checked={mode === 'A'} onChange={() => setMode('A')} /> Type A: Resolution after an existing Application</label>
             <label style={{ flexDirection: 'row', gap: 6 }}><input type="radio" checked={mode === 'B'} onChange={() => setMode('B')} /> Type B: Direct Resolution (no Application)</label>
             {mode === 'A' && (
@@ -168,5 +154,5 @@ export default function New() {
       </>
     );
   }
-  return <><h1>{type === 'application' ? (query.edit ? 'Edit Application' : 'New Application') : 'Resolution'}</h1>{body}</>;
+  return <><h1 className="noprint">{type === 'application' ? (query.edit ? 'Edit Application' : 'New Application') : 'Resolution'}</h1>{body}</>;
 }
