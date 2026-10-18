@@ -1,11 +1,11 @@
+// app/api/ledger/route.js
+
 import { connectDB } from '@/lib/db';
 import { wrap } from '@/lib/http';
-import { buildLedger } from '@/lib/ledger';
-import { fiscalYearOf, todayStr } from '@/lib/calc';
+import { buildLedger, resolveLedgerQuery } from '@/lib/ledger';
 export const dynamic = 'force-dynamic';
 export const GET = wrap(async (req) => {
   await connectDB();
-  const sp = new URL(req.url).searchParams;
-  const month = sp.get('month') || todayStr().slice(0, 7);
-  return Response.json(await buildLedger(sp.get('fy') || fiscalYearOf(month), month));
+  const { fy, month, billNo } = await resolveLedgerQuery(new URL(req.url).searchParams);
+  return Response.json(await buildLedger(fy, month, billNo));
 });

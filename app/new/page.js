@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation';
 import { calcDoc, calcAmount, todayStr } from '@/lib/calc';
 import { api } from '@/lib/client';
 import RequestForm from '@/app/components/RequestForm';
+import CategorySelect from '@/app/components/CategorySelect';
 import { paperRows } from '@/lib/paper';
 
-const blank = () => ({ particulars: '', unit: '', qty: '', unitPrice: '' });
+const blank = () => ({ particulars: '', unit: '', qty: '', unitPrice: '', categoryId: '' });
 const extraInit = (x) => ({ on: !!(x && x.on), mode: (x && x.mode) || 'amount', value: x && x.value ? x.value : '' });
 const n0 = (v) => Number(v) || 0;
 
@@ -22,9 +23,10 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
     fileName: bill?.fileName || '', supplierId: bill?.supplierId || '', applicantName: bill?.applicantName || '',
     sectorLine: bill?.sectorLine || 'MIS/K2', date: bill?.date || todayStr(), dateLabel: bill?.dateLabel || '',
     department: bill?.department || '', nrb: bill?.nrb || { n: 'Y', r: 'Y', b: 'Y' },
-    ledgerMonth: bill?.ledgerMonth || todayStr().slice(0, 7), categoryId: bill?.categoryId || (categories[0] ? String(categories[0]._id) : ''),
+    ledgerMonth: bill?.ledgerMonth || todayStr().slice(0, 7),
   });
-  const [items, setItems] = useState(src ? src.items.map((i) => ({ ...i })) : [blank()]);
+  // old bills: items without their own category fall back to the bill-level category
+  const [items, setItems] = useState(src ? src.items.map((i) => ({ ...i, categoryId: i.categoryId || bill?.categoryId || '' })) : [blank()]);
   const [ait, setAit] = useState(!!(src && src.ait && src.ait.on));
   const [vat, setVat] = useState(extraInit(src && src.vat));
   const [tax, setTax] = useState(extraInit(src && src.tax));
@@ -47,7 +49,10 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
   };
 
   const submit = async (e) => {
-    e.preventDefault(); setErr(''); setBusy(true);
+    e.preventDefault(); setErr('');
+    const missing = items.findIndex((i) => (i.particulars || i.qty || i.unitPrice) && !i.categoryId);
+    if (missing >= 0) { setErr(`Select the Ledger category for item ${missing + 1}`); return; }
+    setBusy(true);
     try {
       const r = await api('/api/bills', { method: 'POST', body: {
         kind, billNo: kind === 'resolutionA' ? undefined : bill?.billNo, parentBillNo: kind === 'resolutionA' ? bill.billNo : undefined,
@@ -125,15 +130,25 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
             <input value={head.department} onChange={H('department')} placeholder="CAD(PC-1)" className="w-full" />
           </label>
 
-          <div className="grid grid-cols-2 gap-2">
-            <label>Ledger Month
-              <input type="month" value={head.ledgerMonth} onChange={H('ledgerMonth')} className="w-full" />
-            </label>
-            <label>Category
-              <select value={head.categoryId} onChange={H('categoryId')} className="w-full">
-                {categories.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
-              </select>
-            </label>
+          <label>Ledger Month
+            <input type="month" value={head.ledgerMonth} onChange={H('ledgerMonth')} className="w-full" />
+          </label>
+
+          {/* ledger category of every item row (only used by the IT Accessories ledger, not printed on the form) */}
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+            <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Ledger category (per item)
+            </div>
+            <div className="space-y-2">
+              {items.map((it, i) => (
+                <div key={i}>
+                  <div className="truncate text-[11px] text-slate-600" title={it.particulars}>
+                    {i + 1}. {it.particulars || '(item name not typed yet)'}
+                  </div>
+                  <CategorySelect categories={categories} value={it.categoryId} onChange={(v) => setItem(i, 'categoryId', v)} />
+                </div>
+              ))}
+            </div>
           </div>
 
           {!lockHead && (
@@ -187,8 +202,15 @@ export default function New() {
       <>
         {!parent && !edit && (
           <div className="card noprint">
-            <label style={{ flexDirection: 'row', gap: 6 }}><input type="radio" checked={mode === 'A'} onChange={() => setMode('A')} /> Type A: Resolution after an existing Application</label>
-            <label style={{ flexDirection: 'row', gap: 6 }}><input type="radio" checked={mode === 'B'} onChange={() => setMode('B')} /> Type B: Direct Resolution (no Application)</label>
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Choose the resolution type</div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className={mode === 'B' ? '' : 'sec'} onClick={() => setMode('B')}>
+                Type B: Direct Resolution (no Application)
+              </button>
+              <button type="button" className={mode === 'A' ? '' : 'sec'} onClick={() => setMode('A')}>
+                Type A: Resolution after an existing Application
+              </button>
+            </div>
             {mode === 'A' && (
               <select value={parentNo} onChange={(e) => setParentNo(e.target.value)} style={{ marginTop: 8 }}>
                 <option value="">-- select Application --</option>

@@ -7,10 +7,11 @@
 //   Category  1 ---- * Bill          bill.categoryId  (Category._id as string,
 //   Category  1 ---- * LedgerEntry   entry.categoryId kept as string so existing
 //                                    documents keep working)
+//   Category  1 ---- * Item          item.categoryId  (each Goods/Services row has its own category)
 //   Bill      1 ----  1 Application  bill.application  (embedded document)
 //   Bill      1 ----  0..1 Resolution bill.resolution  (embedded document)
 //   Bill      1 ---- * File          bill.files        (embedded array)
-//   Bill      1 ----  1 LedgerEntry  entry.billNo      (denormalised Bill No)
+//   Bill      1 ---- * LedgerEntry   entry.billNo      (one entry per category used by the bill)
 //
 // Everything else (saving bills, building the ledger, ...) stays in lib/.
 // Collections are named explicitly so they match an existing MongoDB data set.
@@ -61,10 +62,13 @@ const supplierSchema = new Schema(
 
 // --- Bill: application / resolution documents -----------------------------
 // One row of the bill (max 9 rows, amounts recalculated server-side by lib/calc)
+// categoryId: Category._id (string). Old bills have no item category -> they fall
+// back to bill.categoryId (see lib/billService.js ledgerSplit and app/new/page.js).
 const itemSchema = new Schema(
   {
     particulars: { type: String, default: '' },
     unit: { type: String, default: '' },
+    categoryId: { type: String, default: '' },
     qty: { type: Number, default: 0 },
     unitPrice: { type: Number, default: 0 },
     amount: { type: Number, default: 0 },
@@ -135,6 +139,8 @@ const billSchema = new Schema(
     nrb: new Schema({ n: { type: String, default: 'Y' }, r: { type: String, default: 'Y' }, b: { type: String, default: 'Y' } }, { _id: false }),
     department: { type: String, default: '' },
     ledgerMonth: { type: String, default: '' }, // 'YYYY-MM'
+    // bill-level category = category of the FIRST item (kept for old bills / old code).
+    // The real category of every row is item.categoryId.
     categoryId: { type: String, ref: 'Category', default: '' },
     application: billDocSchema,
     resolution: billDocSchema,
@@ -156,6 +162,7 @@ const billSchema = new Schema(
 billSchema.index({ billNo: 1 }, { unique: true });
 
 // --- LedgerEntry: one row of the monthly ledger grid ----------------------
+// A bill creates ONE entry PER CATEGORY used by its items (billNo is not unique here).
 const ledgerEntrySchema = new Schema(
   {
     fiscalYear: { type: String, default: '' }, // '2025-2026' (July - June)
@@ -168,6 +175,7 @@ const ledgerEntrySchema = new Schema(
   { collection: 'ledgerEntries' }
 );
 ledgerEntrySchema.index({ billNo: 1 });
+ledgerEntrySchema.index({ billNo: 1, categoryId: 1 });
 ledgerEntrySchema.index({ fiscalYear: 1 });
 
 // models.* guard: re-importing this file (Next.js dev fast-refresh) must not

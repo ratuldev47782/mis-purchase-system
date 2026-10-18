@@ -2,7 +2,7 @@
 
 import { connectDB } from '@/lib/db';
 import { wrap, HttpError, body } from '@/lib/http';
-import { Bill, Category } from '@/models';
+import { Bill, Category, LedgerEntry } from '@/models';
 export const dynamic = 'force-dynamic';
 
 export const GET = wrap(async () => {
@@ -31,7 +31,9 @@ export const PUT = wrap(async (req) => {
 export const DELETE = wrap(async (req) => {
   await connectDB();
   const id = new URL(req.url).searchParams.get('id');
-  if (await Bill.exists({ categoryId: id })) throw new HttpError(400, 'Category is used by bills');
+  const used = await Bill.exists({ $or: [{ categoryId: id }, { 'application.items.categoryId': id }, { 'resolution.items.categoryId': id }] })
+    || await LedgerEntry.exists({ categoryId: id });
+  if (used) throw new HttpError(400, 'Category is used by bills');
   await Category.deleteOne({ _id: id });
   return Response.json({ ok: true });
 });

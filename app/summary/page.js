@@ -18,10 +18,19 @@ const viewHref = (b) => '/bill/' + b.billNo;
 
 const WRAP = 'whitespace-pre-wrap break-words';
 
+// Billing remark: the Resolution remark when there is one, otherwise the Application remark
+const remarkOf = (b) => (b.resolution && b.resolution.remarks) || (b.application && b.application.remarks) || '';
+
 export default function Summary() {
   const [bills, setBills] = useState([]);
   const [tab, setTab] = useState('All');
-  const [f, setF] = useState({ month: '', supplier: '', status: '', pay: '', q: '' });
+  const [f, setF] = useState({
+    month: monthKeyOf(new Date()), // default = current month
+    supplier: '',
+    status: '',
+    pay: '',
+    q: '',
+  });
   const [err, setErr] = useState('');
 
   // only ONE row can be in edit mode at a time
@@ -37,8 +46,17 @@ export default function Summary() {
     catch (e) { alert(e.message); }
   };
 
+  const currentMonth = monthKeyOf(new Date());
+
   const suppliers = useMemo(() => [...new Set(bills.map((b) => b.supplierName).filter(Boolean))], [bills]);
-  const months = useMemo(() => [...new Set(bills.map((b) => monthKeyOf(b.date)))], [bills]);
+
+  // current month always selector e thakbe (bill na thakleo), newest age
+  const months = useMemo(() => {
+    const set = new Set(bills.map((b) => monthKeyOf(b.date)).filter(Boolean));
+    set.add(currentMonth);
+    return [...set].sort().reverse();
+  }, [bills, currentMonth]);
+
   const rows = useMemo(() => bills.filter((b) => {
     if (tab !== 'All' && b.supplierName !== tab) return false;
     if (f.month && monthKeyOf(b.date) !== f.month) return false;
@@ -65,14 +83,13 @@ export default function Summary() {
   };
 
   /* ---------- edit mode ---------- */
+  // Only SL / Department / Status are editable here. Supplier Name, Item Description,
+  // Amount and the date stay read only: they come from the Application / Resolution form.
   const startEdit = (b) => {
     if (editing) return;
     setEditing(b.billNo);
     setDraft({
       sl: String(b.sl ?? ''),
-      dateLabel: b.dateLabel || '',
-      itemDescription: b.itemDescription || '',
-      summaryAmountExpr: String(b.summaryAmountExpr || b.summaryAmount || ''),
       department: b.department || '',
       status: b.status || '',
     });
@@ -83,9 +100,6 @@ export default function Summary() {
   const saveEdit = async (b) => {
     const body = {};
     if (Number(draft.sl) !== b.sl) body.sl = draft.sl;
-    if (draft.dateLabel !== (b.dateLabel || '')) body.dateLabel = draft.dateLabel;
-    if (draft.itemDescription !== (b.itemDescription || '')) body.itemDescription = draft.itemDescription;
-    if (draft.summaryAmountExpr !== String(b.summaryAmountExpr || b.summaryAmount || '')) body.summaryAmountExpr = draft.summaryAmountExpr;
     if (draft.department !== (b.department || '')) body.department = draft.department;
     if (draft.status !== (b.status || '')) body.status = draft.status;
 
@@ -120,25 +134,28 @@ export default function Summary() {
     ? <input className={inp} value={draft.sl} onChange={up('sl')} />
     : <span>{b.sl}</span>);
 
-  const vDate = (b) => (isEd(b)
-    ? <input className={inp} value={draft.dateLabel} placeholder={formatDate(b.date)} onChange={up('dateLabel')} />
-    : <span className={WRAP}>{b.dateLabel || formatDate(b.date)}</span>);
+  // Date = the date typed in the Application / Resolution form, so editing the form
+  // (date or optional date label) is reflected here automatically. Never edited in Summary.
+  const vDate = (b) => (
+    <span className={WRAP}>
+      {formatDate(b.date)}
+      {b.dateLabel && <span className="block text-[11px] font-normal text-slate-500">{b.dateLabel}</span>}
+    </span>
+  );
 
-  const vItem = (b) => (isEd(b)
-    ? <textarea rows={4} className={inp + ' resize-y'} value={draft.itemDescription} onChange={up('itemDescription')} />
-    : <span className={WRAP}>{b.itemDescription}</span>);
+  // Read only: change Item Description / Amount in the Application / Resolution form.
+  const vItem = (b) => <span className={WRAP}>{b.itemDescription}</span>;
 
-  const vAmount = (b) => (isEd(b)
-    ? <input className={inp + ' text-right font-semibold'} value={draft.summaryAmountExpr}
-        title="You can type an expression like 450+950+1100" onChange={up('summaryAmountExpr')} />
-    : (
-      <div className="text-right font-semibold">
-        {fmt(b.summaryAmount)}
-        {b.summaryAmountExpr && String(b.summaryAmountExpr) !== String(b.summaryAmount) && (
-          <div className="break-all text-[11px] font-normal text-slate-500">{b.summaryAmountExpr}</div>
-        )}
-      </div>
-    ));
+  const vAmount = (b) => (
+    <div className="text-right font-semibold">
+      {fmt(b.summaryAmount)}
+      {b.summaryAmountExpr && String(b.summaryAmountExpr) !== String(b.summaryAmount) && (
+        <div className="break-all text-[11px] font-normal text-slate-500">{b.summaryAmountExpr}</div>
+      )}
+    </div>
+  );
+
+  const vRemark = (b) => <span className={WRAP}>{remarkOf(b)}</span>;
 
   const vDept = (b) => (isEd(b)
     ? <input className={inp} value={draft.department} onChange={up('department')} />
@@ -241,7 +258,7 @@ export default function Summary() {
       <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white xl:block print:block print:overflow-visible">
         <table className="w-full min-w-[1000px] table-fixed text-[13px]">
           <colgroup>
-            {[4, 8, 10, 19, 9, 9, 8, 11, 6, 6, 10].map((w, i) => <col key={i} style={{ width: w + '%' }} />)}
+            {[3, 7, 9, 16, 8, 8, 8, 10, 13, 6, 6, 6].map((w, i) => <col key={i} style={{ width: w + '%' }} />)}
           </colgroup>
           <thead>
             <tr>
@@ -253,6 +270,7 @@ export default function Summary() {
               <th>Department</th>
               <th className="y">Application / Resolution</th>
               <th>Status</th>
+              <th>Remark</th>
               <th>Purchase No</th>
               <th>Due / Paid</th>
               <th className="noprint text-center">Action</th>
@@ -264,7 +282,7 @@ export default function Summary() {
               return (
                 <Fragment key={b.billNo}>
                   {isHead(i) && (
-                    <tr className="month"><td colSpan={11}>{monthName(mk).toUpperCase()}</td></tr>
+                    <tr className="month"><td colSpan={12}>{monthName(mk).toUpperCase()}</td></tr>
                   )}
                   <tr className={`align-top ${isEd(b) ? 'outline outline-2 -outline-offset-2 outline-blue-400' : ''}`}>
                     <td className="y">{vSl(b)}</td>
@@ -275,6 +293,7 @@ export default function Summary() {
                     <td>{vDept(b)}</td>
                     <td className="y text-center font-semibold">{stageOf(b)}</td>
                     <td>{vStatus(b)}</td>
+                    <td>{vRemark(b)}</td>
                     <td className="text-center"><a href={'/bill/' + b.billNo}>{b.billNo}</a></td>
                     <td
                       className={(b.paymentStatus === 'Paid' ? 'paid' : 'due') + ' text-center'}
@@ -294,7 +313,7 @@ export default function Summary() {
               );
             })}
             {!rows.length && (
-              <tr><td colSpan={11} className="p-6 text-center text-slate-400">No bills found</td></tr>
+              <tr><td colSpan={12} className="p-6 text-center text-slate-400">No bills found</td></tr>
             )}
           </tbody>
         </table>
@@ -339,6 +358,7 @@ export default function Summary() {
                   <div><div className={lbl}>Amount</div>{vAmount(b)}</div>
                   <div><div className={lbl}>Department</div>{vDept(b)}</div>
                   <div className="col-span-2"><div className={lbl}>Status</div>{vStatus(b)}</div>
+                  <div className="col-span-2"><div className={lbl}>Remark</div>{vRemark(b)}</div>
                 </div>
 
                 {/* footer */}

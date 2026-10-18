@@ -1,3 +1,5 @@
+// app/api/bills/next/route.js
+
 import { connectDB } from '@/lib/db';
 import { wrap } from '@/lib/http';
 import { nextBillNo } from '@/lib/billService';

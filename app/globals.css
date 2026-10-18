@@ -53,6 +53,8 @@
   aside, .noprint { display: none !important; }
   body { background: #fff; }
   main { margin-left: 0 !important; padding-top: 0 !important; }
+  /* no half-finished sidebar-collapse animation in the printed snapshot */
+  *, *::before, *::after { transition: none !important; animation: none !important; }
 }
 /* Paper / Excel style tables (Request form, Ledger sheet): don't inherit the app-table look */
 .paper table { background: transparent; box-shadow: none; }
