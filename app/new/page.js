@@ -82,33 +82,79 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
   };
 
   return (
-    <form onSubmit={submit}>
-      {/* extra data that is not printed on the paper (ledger / summary information) */}
-      <div className="card row noprint" style={{ alignItems: 'flex-end' }}>
-        <label>File Name<input disabled={lockHead} value={head.fileName} onChange={H('fileName')} style={{ width: 260 }} placeholder="Processor Motherboard for CAD" /></label>
-        <label>Supplier
-          <select disabled={lockHead} value={head.supplierId} onChange={addSupplier}>
-            <option value="">-- select --</option>
-            {suppliers.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
-            <option value="__new">+ Add new supplier</option>
-          </select></label>
-        <label>Department / For whom<input value={head.department} onChange={H('department')} placeholder="CAD(PC-1)" style={{ width: 160 }} /></label>
-        <label>Ledger Month<input type="month" value={head.ledgerMonth} onChange={H('ledgerMonth')} /></label>
-        <label>Category<select value={head.categoryId} onChange={H('categoryId')}>{categories.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}</select></label>
-        {!lockHead && <label>Summary date label (optional)<input value={head.dateLabel} onChange={H('dateLabel')} placeholder="1-October-2026(For October)" /></label>}
+    <form
+      onSubmit={submit}
+      className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_17rem] xl:items-start print:block"
+    >
+      {/* LEFT: the paper / excel style form */}
+      <div className="min-w-0">
+        <div className="noprint mb-2 text-xs text-slate-500">
+          {isRes ? 'Fill the RESOLUTION columns of the form.' : 'Fill the APPLICATION columns of the form.'} Blue cells are inputs, grey cells are read only.
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white p-2 shadow-sm print:overflow-visible print:border-0 print:p-0 print:shadow-none">
+          <RequestForm d={d} edit={edit} />
+        </div>
       </div>
 
-      <div className="noprint" style={{ fontSize: 12, color: '#555', margin: '4px 0 8px' }}>
-        {isRes ? 'Fill the RESOLUTION columns of the form below.' : 'Fill the APPLICATION columns of the form below.'} Blue cells are inputs, grey cells are read only.
-      </div>
+      {/* RIGHT: ledger / summary info + actions (not printed) */}
+      <aside className="noprint rounded-xl border border-slate-200 bg-white p-3 shadow-sm xl:sticky xl:top-3 xl:max-h-[calc(100vh-1.5rem)] xl:overflow-y-auto">
+        <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          Ledger / Summary info
+        </div>
 
-      <RequestForm d={d} edit={edit} />
+        <div className="space-y-2.5">
+          <label>File Name
+            <input
+              disabled={lockHead}
+              value={head.fileName}
+              onChange={H('fileName')}
+              placeholder="Processor Motherboard for CAD"
+              className="w-full"
+            />
+          </label>
 
-      {err && <div className="err" style={{ marginTop: 10 }}>{err}</div>}
-      <div className="row noprint" style={{ marginTop: 12 }}>
-        <button disabled={busy}>{busy ? 'Saving...' : 'Save'}</button>
-        <a className="btn sec" href={bill ? '/bill/' + bill.billNo : '/summary'}>Cancel</a>
-      </div>
+          <label>Supplier
+            <select disabled={lockHead} value={head.supplierId} onChange={addSupplier} className="w-full">
+              <option value="">-- select --</option>
+              {suppliers.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
+              <option value="__new">+ Add new supplier</option>
+            </select>
+          </label>
+
+          <label>Department / For whom
+            <input value={head.department} onChange={H('department')} placeholder="CAD(PC-1)" className="w-full" />
+          </label>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label>Ledger Month
+              <input type="month" value={head.ledgerMonth} onChange={H('ledgerMonth')} className="w-full" />
+            </label>
+            <label>Category
+              <select value={head.categoryId} onChange={H('categoryId')} className="w-full">
+                {categories.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+              </select>
+            </label>
+          </div>
+
+          {!lockHead && (
+            <label>Summary date label (optional)
+              <input
+                value={head.dateLabel}
+                onChange={H('dateLabel')}
+                placeholder="1-October-2026(For October)"
+                className="w-full"
+              />
+            </label>
+          )}
+        </div>
+
+        {err && <div className="err mt-3 text-xs">{err}</div>}
+
+        <div className="mt-3 flex gap-2 border-t border-slate-200 pt-3">
+          <button disabled={busy} className="flex-1">{busy ? 'Saving...' : 'Save'}</button>
+          <a className="btn sec flex-1 text-center" href={bill ? '/bill/' + bill.billNo : '/summary'}>Cancel</a>
+        </div>
+      </aside>
     </form>
   );
 }
@@ -154,5 +200,12 @@ export default function New() {
       </>
     );
   }
-  return <><h1 className="noprint">{type === 'application' ? (query.edit ? 'Edit Application' : 'New Application') : 'Resolution'}</h1>{body}</>;
+  return (
+    <div className="w-full min-w-0">
+      <h1 className="noprint !mb-2">
+        {type === 'application' ? (query.edit ? 'Edit Application' : 'New Application') : 'Resolution'}
+      </h1>
+      {body}
+    </div>
+  );
 }

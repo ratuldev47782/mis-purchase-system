@@ -5,6 +5,7 @@
 //   <RequestForm d={paperFromBill(bill)} />                 -> read only (print page, previews)
 //   <RequestForm d={d} edit={{ ...handlers }} />             -> same paper, but cells are inputs (new / edit page)
 'use client';
+import { useEffect, useRef } from 'react';
 import { fmt, numberToWords } from '@/lib/calc';
 import { dmy, paperRows } from '@/lib/paper';
 
@@ -28,17 +29,19 @@ const CSS = `
 .rf-line{display:flex;align-items:baseline;gap:6px;margin:0 0 11px;font-weight:700}
 .rf-line .k{width:110px;flex:none}
 .rf-u{flex:1;border-bottom:1.5px dashed #000;color:#00f;font-weight:700;padding:0 4px;min-height:18px}
-.rf-appr{border-collapse:collapse;flex:1;align-self:flex-start;table-layout:fixed}
-.rf-appr th,.rf-appr td{border:1px solid #000;text-align:center;font-size:11px;font-weight:700;padding:2px}
+.rf-appr{border-collapse:collapse;flex:1;align-self:flex-start;table-layout:fixed;box-shadow:none;background:#fff}
+.rf-appr th,.rf-appr td{border:1px solid #000;text-align:center;font-size:11px;font-weight:700;padding:2px;color:#000;background:#fff}
+.rf-appr th{background:#f2f2f2}
 .rf-appr td{height:44px}
 .rf-nrb{display:flex;align-items:center;gap:8px;font-weight:700;font-size:12px;margin-top:8px;flex-wrap:wrap}
 .rf-box{display:inline-flex;align-items:center;justify-content:center;border:1px solid #000;width:58px;height:20px;color:#00f}
 .rf-nrb .sp{flex:1}
 .rf-total{border-bottom:2px solid #000;padding:6px 0 4px;margin-top:8px;font-weight:700;font-size:13px}
 .rf-total .w{font-weight:400;font-style:italic;font-size:12px;margin-left:6px}
-.rf-tbl{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:8px;font-weight:700}
-.rf-tbl th,.rf-tbl td{border:1px solid #000;padding:1px 4px;height:27px;font-size:12px;vertical-align:middle;background:#fff}
-.rf-tbl th{font-size:11.5px;text-align:center;height:20px;background:#f2f2f2}
+.rf-tbl{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:8px;font-weight:700;box-shadow:none;background:#fff}
+.rf-tbl th,.rf-tbl td{border:1px solid #000;padding:1px 4px;height:27px;font-size:12px;vertical-align:middle;background:#fff;color:#000}
+.rf-tbl th{font-size:11.5px;text-align:center;height:20px;background:#f2f2f2;color:#000}
+.rf-tbl tbody tr:hover td{background:#fff}
 .rf-tbl .c{text-align:center}.rf-tbl .r{text-align:right}.rf-tbl .l{text-align:left}
 .rf-tbl .bl{color:#00f}
 .rf-tbl .g{color:#666}
@@ -50,7 +53,7 @@ const CSS = `
 .rf-pay span{white-space:nowrap}
 .rf-pay .grp .u{flex:1;border-bottom:1.5px dashed #000;color:#00f;min-height:17px;padding:0 4px}
 .rf-rem{margin-top:10px;font-weight:700;font-size:12px}
-.rf-rembox{border:1px solid #000;min-height:62px;margin-top:2px;padding:3px 5px;color:#00f;font-weight:700;white-space:pre-wrap;font-size:12px;background:linear-gradient(#fff 20px,#000 20px,#000 21px,#fff 21px,#fff 41px,#000 41px,#000 42px,#fff 42px)}
+.rf-rembox{border:1px solid #000;height:64px;min-height:0;overflow:hidden;margin-top:2px;padding:3px 5px;color:#00f;font-weight:700;white-space:pre-wrap;font-size:12px;background:linear-gradient(#fff 20px,#000 20px,#000 21px,#fff 21px,#fff 41px,#000 41px,#000 42px,#fff 42px)}
 .rf-foot{display:flex;align-items:center;gap:6px;margin:14px 0 6px;font-weight:700;font-size:13px}
 .rf-foot img{width:26px;height:27px;object-fit:contain}
 .rf-cut{border-top:1.5px dashed #000;margin:6px 0 14px;position:relative;height:0}
@@ -76,9 +79,12 @@ const CSS = `
 @media print{
   .noprint{display:none!important}
   .rf-wrap{padding:0;overflow:visible}
-  .rf-sheet{border:0;box-shadow:none;max-width:none;min-width:0;width:100%;padding:0}
+  .rf-sheet{border:0;box-shadow:none;max-width:none;min-width:0;width:100%;padding:0;page-break-inside:avoid;break-inside:avoid}
+  .rf-tbl th,.rf-tbl td{height:23px}
+  .rf-tbl th{height:19px}
+  .rf-rembox{height:62px;min-height:0;overflow:hidden}
   .rf-add,.rf-x{display:none!important}
-  @page{size:A4 portrait;margin:9mm}
+  @page{size:A4 portrait;margin:7mm}
   body{background:#fff!important}
 }
 `;
@@ -169,11 +175,38 @@ function EditRows({ d, e }) {
 
 export default function RequestForm({ d, edit }) {
   const e = edit || null;
+  const sheet = useRef(null);
+
+  // Print: if the form is taller than one A4 page, shrink it so it always fits on ONE page
+  useEffect(() => {
+    const fit = () => {
+      const el = sheet.current; if (!el) return;
+      el.style.zoom = '';
+      const cs = getComputedStyle(el);
+      const content = el.scrollHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      const pageH = ((297 - 14) * 96) / 25.4; // A4 height minus 7mm top/bottom margins, in px
+      if (content > pageH) el.style.zoom = String(Math.max(0.5, (pageH / content) * 0.97));
+    };
+    const reset = () => { if (sheet.current) sheet.current.style.zoom = ''; };
+    window.addEventListener('beforeprint', fit);
+    window.addEventListener('afterprint', reset);
+    return () => {
+      window.removeEventListener('beforeprint', fit);
+      window.removeEventListener('afterprint', reset);
+    };
+  }, []);
+
   const lock = !!(e && e.lock);
   const words = numberToWords(d.total || 0);
   const nrb = d.nrb || { n: 'Y', r: 'Y', b: 'Y' };
   const F = (k) => (ev) => e.setHead({ ...e.head, [k]: ev.target.value });
   const P = (k) => (ev) => e.setPay({ ...e.pay, [k]: ev.target.value });
+
+  // long remarks -> smaller font so everything stays inside the box
+  const remLen = (d.remarks || '').length;
+  const remStyle = !e && remLen > 160
+    ? { fontSize: remLen > 450 ? 8 : remLen > 300 ? 9 : 10.5, lineHeight: 1.15, background: 'none' }
+    : undefined;
 
   const nrbBox = (k, label) => (
     <>
@@ -185,7 +218,7 @@ export default function RequestForm({ d, edit }) {
   return (
     <div className="rf-wrap">
       <style>{CSS}</style>
-      <div className="rf-sheet">
+      <div className="rf-sheet" ref={sheet}>
         {/* ---------- header ---------- */}
         <div className="rf-top">
           <div className="rf-co">
@@ -270,7 +303,9 @@ export default function RequestForm({ d, edit }) {
         </div>
 
         <div className="rf-rem">Remarks:
-          <div className="rf-rembox">{e ? <textarea value={e.remarks} onChange={(ev) => e.setRemarks(ev.target.value)} /> : d.remarks}</div>
+          <div className="rf-rembox" style={remStyle}>
+            {e ? <textarea maxLength={700} value={e.remarks} onChange={(ev) => e.setRemarks(ev.target.value)} /> : d.remarks}
+          </div>
         </div>
         <div className="rf-foot"><img src="/hkd-logo.png" alt="" />HKD Group</div>
 

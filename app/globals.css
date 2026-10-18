@@ -1,7 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 @import "tailwindcss";
+
 @layer base {
   body { @apply bg-slate-100 text-slate-800 text-sm antialiased; }
   h1 { @apply text-2xl font-bold text-slate-900 mb-4; }
@@ -17,10 +15,17 @@
 }
 
 @layer components {
-  nav { @apply sticky top-0 z-40 flex flex-wrap items-center gap-5 bg-slate-900 px-6 py-2 shadow; }
-  nav a { @apply text-slate-300 hover:text-white no-underline; }
-  main { @apply max-w-7xl mx-auto p-6; }
-
+  /* nav and main global styles removed: Sidebar/AppShell handle layout */
+.app-content > * {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  transform: none !important;
+  left: auto !important;
+  right: auto !important;
+}
   .card { @apply bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-3; }
   .cards { @apply grid grid-cols-2 md:grid-cols-4 gap-3 mb-3; }
   .cards .card { @apply mb-0 text-slate-500; }
@@ -45,7 +50,13 @@
 }
 
 @media print {
-  nav, .noprint { display: none !important; }
+  aside, .noprint { display: none !important; }
   body { background: #fff; }
-  main { padding: 0; max-width: none; }
+  main { margin-left: 0 !important; padding-top: 0 !important; }
 }
+/* Paper / Excel style tables (Request form, Ledger sheet): don't inherit the app-table look */
+.paper table { background: transparent; box-shadow: none; }
+.paper th,
+.paper td { color: #000; }
+.paper th { font-weight: 700; }
+.paper tbody tr:hover td { background-color: transparent; }
