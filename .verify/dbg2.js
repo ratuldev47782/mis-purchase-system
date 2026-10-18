@@ -1,3 +1,5 @@
+// .verify/dbg2.js
+
 const puppeteer = require('puppeteer-core');
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 (async () => {

@@ -193,6 +193,8 @@ export default function BillPage() {
           <div className="flex flex-wrap gap-2">
             <a className="btn" href={`/print/${b.billNo}`}>Print</a>
             <a className="btn sec" href={`/api/export/bill/${b.billNo}`}>Export Excel</a>
+            {/* Full IT Accessories Sheet with only this bill's category rows highlighted (see /ledger?bill=) */}
+            <a className="btn sec" href={`/ledger?bill=${b.billNo}`} target="_blank" rel="noreferrer">IT Accessories Sheet</a>
             {b.application && <a className="btn sec" href={`/new?type=application&edit=${b.billNo}`}>Edit Application</a>}
             {b.application && <a className="btn sec" href={`/new?type=resolution&parent=${b.billNo}`}>{b.resolution ? 'Edit' : 'Create'} Resolution</a>}
             {!b.application && <a className="btn sec" href={`/new?type=resolution&edit=${b.billNo}`}>Edit Resolution</a>}
