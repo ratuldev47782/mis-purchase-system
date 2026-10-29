@@ -3,7 +3,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { calcDoc, calcAmount, todayStr } from '@/lib/calc';
+import { calcDoc, calcAmount, todayStr, fmt, fiscalMonths, fiscalYearOf, monthKeyOf, monthLabel } from '@/lib/calc';
 import { api } from '@/lib/client';
 import RequestForm from '@/app/components/RequestForm';
 import CategorySelect from '@/app/components/CategorySelect';
@@ -12,6 +12,109 @@ import { paperRows } from '@/lib/paper';
 const blank = () => ({ particulars: '', unit: '', qty: '', unitPrice: '', categoryId: '' });
 const extraInit = (x) => ({ on: !!(x && x.on), mode: (x && x.mode) || 'amount', value: x && x.value ? x.value : '' });
 const n0 = (v) => Number(v) || 0;
+
+// Type A picker: filter the existing Application bills by F Year, Month and a free text search.
+// Defaults to the current month / fiscal year.
+function ApplicationPicker({ bills, onPick }) {
+  const curMonth = todayStr().slice(0, 7);
+  const apps = bills.filter((b) => b.application);
+  const monthOf = (b) => monthKeyOf(b.ledgerMonth || b.date);
+  const [fy, setFy] = useState(fiscalYearOf(curMonth));
+  const [month, setMonth] = useState(curMonth);
+  const [q, setQ] = useState('');
+
+  const fyList = [...new Set([fiscalYearOf(curMonth), ...apps.map((b) => fiscalYearOf(monthOf(b))).filter(Boolean)])].sort();
+  const months = fiscalMonths(fy);
+  const term = q.trim().toLowerCase();
+  const rows = apps
+    .filter((b) => {
+      const mk = monthOf(b);
+      if (mk && fiscalYearOf(mk) !== fy) return false;
+      if (month && mk !== month) return false;
+      if (!term) return true;
+      return [b.billNo, 'mis-' + b.billNo, b.fileName, b.title, b.supplierName, b.applicantName, b.department]
+        .filter(Boolean).join(' ').toLowerCase().includes(term);
+    })
+    .sort((a, b) => b.billNo - a.billNo);
+
+  const pickFy = (v) => {
+    setFy(v);
+    if (month && !fiscalMonths(v).includes(month)) setMonth(fiscalMonths(v)[0]);
+  };
+
+  return (
+    <div>
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+        Find the Application bill
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[10rem_14rem_minmax(0,1fr)]">
+        <label>F Year
+          <select value={fy} onChange={(e) => pickFy(e.target.value)}>
+            {fyList.map((x) => <option key={x} value={x}>FY {x}</option>)}
+          </select>
+        </label>
+        <label>Month
+          <select value={month} onChange={(e) => setMonth(e.target.value)}>
+            <option value="">All months</option>
+            {months.map((x) => <option key={x} value={x}>{monthLabel(x)}</option>)}
+          </select>
+        </label>
+        <label>Bill Search
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Bill no, file name, supplier, applicant..."
+          />
+        </label>
+      </div>
+
+      <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+        <span>{rows.length} application bill{rows.length === 1 ? '' : 's'} found</span>
+        {(q || month !== curMonth || fy !== fiscalYearOf(curMonth)) && (
+          <button
+            type="button"
+            className="sec !px-2 !py-1 text-[11px]"
+            onClick={() => { setQ(''); setFy(fiscalYearOf(curMonth)); setMonth(curMonth); }}
+          >
+            Reset filters
+          </button>
+        )}
+      </div>
+
+      <div className="mt-1.5 max-h-72 space-y-1.5 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-1.5">
+        {rows.length === 0 && (
+          <div className="px-2 py-6 text-center text-xs text-slate-500">
+            No Application bill matches these filters.
+          </div>
+        )}
+        {rows.map((b) => {
+          const done = !!b.resolution;
+          return (
+            <button
+              key={b.billNo}
+              type="button"
+              disabled={done}
+              onClick={() => onPick(b.billNo)}
+              className="block w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-left text-slate-900 hover:border-blue-400 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-slate-200 disabled:hover:bg-white"
+            >
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className="text-xs font-bold text-slate-900">MIS-{b.billNo}</span>
+                <span className="min-w-0 flex-1 truncate text-xs font-medium">{b.fileName || '(no file name)'}</span>
+                <span className="text-[11px] tabular-nums text-slate-600">{fmt(n0(b.application.total))}</span>
+              </div>
+              <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-slate-500">
+                <span>{monthKeyOf(b.ledgerMonth || b.date) ? monthLabel(monthKeyOf(b.ledgerMonth || b.date)) : 'No month'}</span>
+                {b.supplierName && <span>· {b.supplierName}</span>}
+                {b.applicantName && <span>· {b.applicantName}</span>}
+                {done && <span className="font-semibold text-amber-700">· Resolution already added</span>}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // kind: 'application' | 'resolutionA' | 'resolutionB'. bill = existing bill (edit / parent application) or null
 function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, reloadSuppliers }) {
@@ -201,7 +304,8 @@ export default function New() {
     body = (
       <>
         {!parent && !edit && (
-          <div className="card noprint">
+          // hidden (not unmounted) while a bill is selected, so the filters you used stay put
+          <div className={'card noprint' + (parentNo ? ' hidden' : '')}>
             <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Choose the resolution type</div>
             <div className="flex flex-wrap gap-2">
               <button type="button" className={mode === 'B' ? '' : 'sec'} onClick={() => setMode('B')}>
@@ -212,10 +316,19 @@ export default function New() {
               </button>
             </div>
             {mode === 'A' && (
-              <select value={parentNo} onChange={(e) => setParentNo(e.target.value)} style={{ marginTop: 8 }}>
-                <option value="">-- select Application --</option>
-                {data.bills.filter((b) => b.application).map((b) => <option key={b.billNo} value={b.billNo}>{b.title} ({b.stage})</option>)}
-              </select>)}
+              <div className="mt-3 border-t border-slate-200 pt-3">
+                <ApplicationPicker bills={data.bills} onPick={(no) => setParentNo(String(no))} />
+              </div>)}
+          </div>)}
+        {m === 'A' && parentNo && !parent && find(parentNo) && (
+          <div className="noprint mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+            <span>
+              Application selected: <b className="text-slate-900">MIS-{find(parentNo).billNo}</b>
+              {find(parentNo).fileName ? ' · ' + find(parentNo).fileName : ''}
+            </span>
+            <button type="button" className="sec !px-2 !py-1 text-[11px]" onClick={() => setParentNo('')}>
+              Change
+            </button>
           </div>)}
         {m === 'A' && (parent || find(parentNo)) && <BillForm key={'A' + (parent || find(parentNo)).billNo} kind="resolutionA" bill={parent || find(parentNo)} {...common} />}
         {m === 'B' && <BillForm key={'B' + (edit?.billNo || '')} kind="resolutionB" bill={edit} {...common} />}

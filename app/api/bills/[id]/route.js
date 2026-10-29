@@ -1,5 +1,6 @@
 // app/api/bills/[id]/route.js
 
+import fs from 'fs';
 import { connectDB, getSettings } from '@/lib/db';
 import { wrap, HttpError, body } from '@/lib/http';
 import { evalExpr } from '@/lib/calc';
@@ -18,10 +19,31 @@ async function load(params) {
 
 export const GET = wrap(async (req, { params }) => Response.json((await load(params)).bill));
 
+// Deletes EVERYTHING of a bill: scan files on disk, ledger entries, and the bill document
+// (which also holds the application, resolution and files list).
 export const DELETE = wrap(async (req, { params }) => {
-  const { billNo } = await load(params);
+  const { billNo, bill } = await load(params);
+
+  // 1) scan files on disk first. If one can't be removed, stop BEFORE touching the database,
+  //    so the bill still knows about its files and the delete can simply be retried.
+  const failed = [];
+  for (const f of bill.files || []) {
+    if (!f.savedPath) continue;
+    try {
+      fs.unlinkSync(f.savedPath);
+    } catch (e) {
+      // ENOENT = file is already gone, which is fine
+      if (e.code !== 'ENOENT') failed.push(`${f.originalName || f.savedName}: ${e.message}`);
+    }
+  }
+  if (failed.length) {
+    throw new HttpError(500, 'Could not delete these files from disk, so the bill was NOT deleted: ' + failed.join('; '));
+  }
+
+  // 2) ledger entries (one per category used by the bill), then 3) the bill itself
+  await LedgerEntry.deleteMany({ billNo });
   await Bill.deleteOne({ billNo });
-  await LedgerEntry.deleteMany({ billNo }); // uploaded files are NOT deleted
+
   return Response.json({ ok: true, message: 'Bill deleted' });
 });
 
