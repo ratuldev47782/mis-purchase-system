@@ -30,11 +30,6 @@ const TB = 'inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowra
 const TB_PRI = `${TB} border-slate-900 bg-slate-900 text-white hover:bg-slate-800`;
 const TB_SEC = `${TB} border-slate-300 bg-white text-slate-900 hover:bg-slate-100`;
 
-// supplier tabs
-const TAB = 'h-7 rounded-full border px-3 text-xs font-semibold transition';
-const TAB_ON = `${TAB} border-slate-900 bg-slate-900 text-white`;
-const TAB_OFF = `${TAB} border-slate-300 bg-white text-slate-700 hover:bg-slate-100`;
-
 // filters
 const CTRL = 'h-8 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-2 text-xs text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200';
 
@@ -81,7 +76,6 @@ const COLS = [
 
 export default function Summary() {
   const [bills, setBills] = useState([]);
-  const [tab, setTab] = useState('All');
   const [f, setF] = useState({
     month: monthKeyOf(new Date()), // default = current month
     supplier: '',
@@ -108,7 +102,6 @@ export default function Summary() {
   const currentMonth = monthKeyOf(new Date());
 
   const resetFilters = () => {
-    setTab('All');
     setF({ month: currentMonth, supplier: '', status: '', pay: '', q: '', billNo: '' });
   };
 
@@ -128,7 +121,7 @@ export default function Summary() {
   }, [bills]);
 
   const rows = useMemo(() => {
-    // Bill search: look through ALL bills, ignore month/supplier/status/tab filters
+    // Bill search: look through ALL bills, ignore month/supplier/status filters
     const bq = f.billNo.trim();
     if (bq) {
       const digits = bq.replace(/\D/g, ''); // accepts "2164", "MIS-2164", "#2164"
@@ -136,7 +129,6 @@ export default function Summary() {
     }
 
     return bills.filter((b) => {
-      if (tab !== 'All' && b.supplierName !== tab) return false;
       if (f.month && monthKeyOf(b.date) !== f.month) return false;
       if (f.supplier && b.supplierName !== f.supplier) return false;
       if (f.status && b.status !== f.status) return false;
@@ -147,7 +139,7 @@ export default function Summary() {
       }
       return true;
     });
-  }, [bills, tab, f]);
+  }, [bills, f]);
 
   const sum = (arr) => arr.reduce((s, b) => s + (Number(b.summaryAmount) || 0), 0);
   const due = rows.filter((b) => b.paymentStatus !== 'Paid');
@@ -344,21 +336,12 @@ export default function Summary() {
         </div>
       </div>
 
-      {/* Supplier tabs + totals on one line */}
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 print:hidden">
-        <div className="flex flex-wrap gap-1.5">
-          {['All', ...suppliers].map((t) => (
-            <button key={t} type="button" className={tab === t ? TAB_ON : TAB_OFF} onClick={() => setTab(t)}>
-              {t === 'All' ? 'All (Purchase Register)' : t}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-          <span>Bills <b className="text-slate-900">{rows.length}</b></span>
-          <span>Amount <b className="tabular-nums text-slate-900">{fmt(sum(rows))}</b></span>
-          <span>Due <b className="tabular-nums text-red-600">{fmt(sum(due))}</b></span>
-          <span>Paid <b className="tabular-nums text-green-700">{fmt(sum(paid))}</b></span>
-        </div>
+      {/* Totals */}
+      <div className="mb-2 flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-xs text-slate-500 print:hidden">
+        <span>Bills <b className="text-slate-900">{rows.length}</b></span>
+        <span>Amount <b className="tabular-nums text-slate-900">{fmt(sum(rows))}</b></span>
+        <span>Due <b className="tabular-nums text-red-600">{fmt(sum(due))}</b></span>
+        <span>Paid <b className="tabular-nums text-green-700">{fmt(sum(paid))}</b></span>
       </div>
 
       {/* Filters (one compact row) */}
@@ -379,9 +362,9 @@ export default function Summary() {
           <option value="">All months</option>
           {months.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
         </select>
-        <select className={`${CTRL} sm:w-40 sm:flex-none`} aria-label="Supplier" value={f.supplier} onChange={(e) => setF({ ...f, supplier: e.target.value })}>
-          <option value="">All suppliers</option>
-          {suppliers.map((s) => <option key={s}>{s}</option>)}
+        <select className={`${CTRL} sm:w-48 sm:flex-none`} aria-label="Supplier" value={f.supplier} onChange={(e) => setF({ ...f, supplier: e.target.value })}>
+          <option value="">All (Purchase Register)</option>
+          {suppliers.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <select className={`${CTRL} sm:w-44 sm:flex-none`} aria-label="Status" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>
           <option value="">All statuses</option>
@@ -554,7 +537,7 @@ export default function Summary() {
         )}
       </div>
 
-      {tab !== 'All' && <p className="mt-3"><b>{tab}</b> - Total Due: {fmt(sum(due))}</p>}
+      {f.supplier && <p className="mt-3"><b>{f.supplier}</b> - Total Due: {fmt(sum(due))}</p>}
     </div>
   );
 }

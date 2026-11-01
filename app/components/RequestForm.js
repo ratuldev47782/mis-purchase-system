@@ -30,9 +30,10 @@ const CSS = `
 .rf-line .k{width:110px;flex:none}
 .rf-u{flex:1;border-bottom:1.5px dashed #000;color:#00f;font-weight:700;padding:0 4px;min-height:18px}
 .rf-appr{border-collapse:collapse;flex:1;align-self:flex-start;table-layout:fixed;box-shadow:none;background:#fff}
-.rf-appr th,.rf-appr td{border:1px solid #000;text-align:center;font-size:11px;font-weight:700;padding:2px;color:#000;background:#fff}
+.rf-appr th,.rf-appr td{border:1px solid #000;text-align:center;font-size:11px;font-weight:700;padding:2px 1px;color:#000;background:#fff;overflow:hidden}
+.rf-appr th{font-size:9.5px;white-space:nowrap}
 .rf-appr th{background:#f2f2f2}
-.rf-appr td{height:44px}
+.rf-appr td{height:55px}
 .rf-nrb{display:flex;align-items:center;gap:8px;font-weight:700;font-size:12px;margin-top:8px;flex-wrap:wrap}
 .rf-box{display:inline-flex;align-items:center;justify-content:center;border:1px solid #000;width:58px;height:20px;color:#00f}
 .rf-nrb .sp{flex:1}
@@ -73,6 +74,7 @@ const CSS = `
 .rf-sheet textarea{resize:none;line-height:21px;height:60px!important;padding:0 2px!important;background:transparent!important}
 .rf-x{border:0;background:transparent;color:#c00;font-weight:700;cursor:pointer;font-size:14px;line-height:1;padding:0 2px}
 .rf-add{border:1px dashed #00f;background:#f4f7ff;color:#00f;font-family:inherit;font-weight:700;font-size:11px;padding:1px 8px;cursor:pointer;border-radius:3px}
+.rf-addbar{margin-top:4px}
 .rf-xt{display:flex;align-items:center;gap:4px}
 .rf-xt select{width:80px;flex:none}
 .rf-xt input[type=text]{width:50px;border-bottom:1px solid #00f!important}
@@ -112,9 +114,11 @@ function EditRows({ d, e }) {
   const isA = e.side === 'application';
   const { items, setItem, calc } = e;
   const out = [];
+  // number of item rows on the paper (min 9, grows with items). Last 3 rows of d.rows are AIT / VAT / TAX
+  const itemCount = d.rows.length - 3;
   const roA = (r) => [<td key="q" className="r g">{r && r.a ? r.a.q : ''}</td>, <td key="u" className="r g">{r && r.a ? fmt(r.a.u) : ''}</td>, <td key="t" className="r g">{r && r.a ? fmt(r.a.t) : ''}</td>];
   const roR = (r) => [<td key="q" className="r g">{r && r.r ? r.r.q : ''}</td>, <td key="u" className="r g">{r && r.r ? fmt(r.r.u) : ''}</td>, <td key="t" className="r g">{r && r.r ? fmt(r.r.t) : ''}</td>];
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < itemCount; i++) {
     const it = items[i]; const o = d.rows[i];
     let cells;
     if (it) {
@@ -144,13 +148,13 @@ function EditRows({ d, e }) {
   }
   const ex = [['ait', e.ait, null, calc.ait.amount], ['vat', e.vat, e.setVat, calc.vat.amount], ['tax', e.tax, e.setTax, calc.tax.amount]];
   ex.forEach(([k, x, set, amt], idx) => {
-    const on = k === 'ait' ? x : x.on; const o = d.rows[9 + idx];
+    const on = k === 'ait' ? x : x.on; const o = d.rows[itemCount + idx];
     const mine = [
       <td key="q" className="r">{on ? 1 : ''}</td>, <td key="u" className="r">{on ? fmt(amt) : ''}</td>, <td key="t" className="r">{on ? fmt(amt) : ''}</td>,
     ];
     out.push(
       <tr key={k}>
-        <td className="c">{10 + idx}</td>
+        <td className="c">{itemCount + 1 + idx}</td>
         <td>
           <div className="rf-xt">
             <label style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', cursor: 'pointer' }}>
@@ -185,7 +189,7 @@ export default function RequestForm({ d, edit }) {
       const cs = getComputedStyle(el);
       const content = el.scrollHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
       const pageH = ((297 - 14) * 96) / 25.4; // A4 height minus 7mm top/bottom margins, in px
-      if (content > pageH) el.style.zoom = String(Math.max(0.5, (pageH / content) * 0.97));
+      if (content > pageH) el.style.zoom = String(Math.max(0.35, (pageH / content) * 0.97));
     };
     const reset = () => { if (sheet.current) sheet.current.style.zoom = ''; };
     window.addEventListener('beforeprint', fit);
@@ -278,6 +282,12 @@ export default function RequestForm({ d, edit }) {
             </tr>
           </tbody>
         </table>
+        {/* all 9 base rows are used -> no empty row left to hold the button, so show it under the table */}
+        {e && e.items.length >= 9 && (
+          <div className="rf-addbar noprint">
+            <button type="button" className="rf-add" onClick={e.addRow}>+ Add row</button>
+          </div>
+        )}
 
         {/* ---------- payment / budget ---------- */}
         <div className="rf-pay">

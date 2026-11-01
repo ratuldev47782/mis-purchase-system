@@ -157,9 +157,12 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
     if (missing >= 0) { setErr(`Select the Ledger category for item ${missing + 1}`); return; }
     setBusy(true);
     try {
-      const r = await api('/api/bills', { method: 'POST', body: {
-        kind, billNo: kind === 'resolutionA' ? undefined : bill?.billNo, parentBillNo: kind === 'resolutionA' ? bill.billNo : undefined,
-        head, doc: { items, ait: { on: ait }, vat, tax, remarks }, pay } });
+      const r = await api('/api/bills', {
+        method: 'POST', body: {
+          kind, billNo: kind === 'resolutionA' ? undefined : bill?.billNo, parentBillNo: kind === 'resolutionA' ? bill.billNo : undefined,
+          head, doc: { items, ait: { on: ait }, vat, tax, remarks }, pay
+        }
+      });
       router.push('/bill/' + r.bill.billNo);
     } catch (x) { setErr(x.message); setBusy(false); }
   };
@@ -185,7 +188,8 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
   };
   const edit = {
     side: isRes ? 'resolution' : 'application', lock: lockHead, head, setHead, pay, setPay, applicants,
-    items, setItem, addRow: () => items.length < 9 && setItems([...items, blank()]), delRow: (i) => setItems(items.filter((_, n) => n !== i)),
+    items, setItem, addRow: () => setItems([...items, blank()]),
+    delRow: (i) => items.length > 1 && setItems(items.filter((_, n) => n !== i)),
     ait, setAit, vat, setVat, tax, setTax, calc, remarks, setRemarks, advanceEditable: kind !== 'resolutionA',
   };
 
