@@ -1,8 +1,8 @@
 // app/new/page.js
 
 'use client';
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { calcDoc, calcAmount, todayStr, fmt, fiscalMonths, fiscalYearOf, monthKeyOf, monthLabel } from '@/lib/calc';
 import { api } from '@/lib/client';
 import RequestForm from '@/app/components/RequestForm';
@@ -12,6 +12,17 @@ import { paperRows } from '@/lib/paper';
 const blank = () => ({ particulars: '', unit: '', qty: '', unitPrice: '', categoryId: '' });
 const extraInit = (x) => ({ on: !!(x && x.on), mode: (x && x.mode) || 'amount', value: x && x.value ? x.value : '' });
 const n0 = (v) => Number(v) || 0;
+
+/* ---------------- Theme: Flat Teal & Zinc (Tailwind only) ---------------- */
+const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/40';
+const CARD = 'rounded-md border border-zinc-300 bg-white';
+const TITLE = 'text-[11px] font-medium uppercase tracking-wide text-zinc-500';
+const LBL = 'block text-xs font-medium text-zinc-700';
+const INPUT = 'mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-700/25 disabled:bg-zinc-50 disabled:text-zinc-500';
+const BTN = `inline-flex h-9 items-center justify-center whitespace-nowrap rounded-md border px-4 text-[13px] font-medium disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS}`;
+const BTN_PRI = `${BTN} border-teal-800 bg-teal-800 text-white hover:bg-teal-900`;
+const BTN_SEC = `${BTN} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50`;
+const BTN_SM = `inline-flex h-7 items-center justify-center whitespace-nowrap rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 ${FOCUS}`;
 
 // Type A picker: filter the existing Application bills by F Year, Month and a free text search.
 // Defaults to the current month / fiscal year.
@@ -44,23 +55,24 @@ function ApplicationPicker({ bills, onPick }) {
 
   return (
     <div>
-      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+      <div className={`mb-2 ${TITLE}`}>
         Find the Application bill
       </div>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[10rem_14rem_minmax(0,1fr)]">
-        <label>F Year
-          <select value={fy} onChange={(e) => pickFy(e.target.value)}>
+        <label className={LBL}>F Year
+          <select className={INPUT} value={fy} onChange={(e) => pickFy(e.target.value)}>
             {fyList.map((x) => <option key={x} value={x}>FY {x}</option>)}
           </select>
         </label>
-        <label>Month
-          <select value={month} onChange={(e) => setMonth(e.target.value)}>
+        <label className={LBL}>Month
+          <select className={INPUT} value={month} onChange={(e) => setMonth(e.target.value)}>
             <option value="">All months</option>
             {months.map((x) => <option key={x} value={x}>{monthLabel(x)}</option>)}
           </select>
         </label>
-        <label>Bill Search
+        <label className={LBL}>Bill Search
           <input
+            className={INPUT}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Bill no, file name, supplier, applicant..."
@@ -68,12 +80,12 @@ function ApplicationPicker({ bills, onPick }) {
         </label>
       </div>
 
-      <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+      <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-500">
         <span>{rows.length} application bill{rows.length === 1 ? '' : 's'} found</span>
         {(q || month !== curMonth || fy !== fiscalYearOf(curMonth)) && (
           <button
             type="button"
-            className="sec !px-2 !py-1 text-[11px]"
+            className={BTN_SM}
             onClick={() => { setQ(''); setFy(fiscalYearOf(curMonth)); setMonth(curMonth); }}
           >
             Reset filters
@@ -81,9 +93,9 @@ function ApplicationPicker({ bills, onPick }) {
         )}
       </div>
 
-      <div className="mt-1.5 max-h-72 space-y-1.5 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-1.5">
+      <div className="mt-1.5 max-h-72 space-y-1.5 overflow-y-auto rounded-md border border-zinc-300 bg-zinc-50 p-1.5">
         {rows.length === 0 && (
-          <div className="px-2 py-6 text-center text-xs text-slate-500">
+          <div className="px-2 py-6 text-center text-xs text-zinc-500">
             No Application bill matches these filters.
           </div>
         )}
@@ -95,18 +107,18 @@ function ApplicationPicker({ bills, onPick }) {
               type="button"
               disabled={done}
               onClick={() => onPick(b.billNo)}
-              className="block w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-left text-slate-900 hover:border-blue-400 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-slate-200 disabled:hover:bg-white"
+              className={`block w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-left text-zinc-900 hover:border-teal-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-zinc-300 disabled:hover:bg-white ${FOCUS}`}
             >
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <span className="text-xs font-bold text-slate-900">MIS-{b.billNo}</span>
+                <span className="text-xs font-semibold text-zinc-900">MIS-{b.billNo}</span>
                 <span className="min-w-0 flex-1 truncate text-xs font-medium">{b.fileName || '(no file name)'}</span>
-                <span className="text-[11px] tabular-nums text-slate-600">{fmt(n0(b.application.total))}</span>
+                <span className="text-[11px] tabular-nums text-zinc-600">{fmt(n0(b.application.total))}</span>
               </div>
-              <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-slate-500">
+              <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-zinc-500">
                 <span>{monthKeyOf(b.ledgerMonth || b.date) ? monthLabel(monthKeyOf(b.ledgerMonth || b.date)) : 'No month'}</span>
                 {b.supplierName && <span>· {b.supplierName}</span>}
                 {b.applicantName && <span>· {b.applicantName}</span>}
-                {done && <span className="font-semibold text-amber-700">· Resolution already added</span>}
+                {done && <span className="font-medium text-teal-800">· Resolution already added</span>}
               </div>
             </button>
           );
@@ -200,56 +212,56 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
     >
       {/* LEFT: the paper / excel style form */}
       <div className="min-w-0">
-        <div className="noprint mb-2 text-xs text-slate-500">
+        <div className="noprint mb-2 text-xs text-zinc-500">
           {isRes ? 'Fill the RESOLUTION columns of the form.' : 'Fill the APPLICATION columns of the form.'} Blue cells are inputs, grey cells are read only.
         </div>
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white p-2 shadow-sm print:overflow-visible print:border-0 print:p-0 print:shadow-none">
+        <div className="overflow-x-auto rounded-md border border-zinc-300 bg-white p-2 print:overflow-visible print:border-0 print:p-0">
           <RequestForm d={d} edit={edit} />
         </div>
       </div>
 
       {/* RIGHT: ledger / summary info + actions (not printed) */}
-      <aside className="noprint rounded-xl border border-slate-200 bg-white p-3 shadow-sm xl:sticky xl:top-3 xl:max-h-[calc(100vh-1.5rem)] xl:overflow-y-auto">
-        <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+      <aside className={`noprint ${CARD} p-3 xl:sticky xl:top-3 xl:max-h-[calc(100vh-1.5rem)] xl:overflow-y-auto`}>
+        <div className={`mb-2.5 ${TITLE}`}>
           Ledger / Summary info
         </div>
 
         <div className="space-y-2.5">
-          <label>File Name
+          <label className={LBL}>File Name
             <input
               disabled={lockHead}
               value={head.fileName}
               onChange={H('fileName')}
               placeholder="Processor Motherboard for CAD"
-              className="w-full"
+              className={INPUT}
             />
           </label>
 
-          <label>Supplier
-            <select disabled={lockHead} value={head.supplierId} onChange={addSupplier} className="w-full">
+          <label className={LBL}>Supplier
+            <select disabled={lockHead} value={head.supplierId} onChange={addSupplier} className={INPUT}>
               <option value="">-- select --</option>
               {suppliers.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
               <option value="__new">+ Add new supplier</option>
             </select>
           </label>
 
-          <label>Department / For whom
-            <input value={head.department} onChange={H('department')} placeholder="CAD(PC-1)" className="w-full" />
+          <label className={LBL}>Department / For whom
+            <input value={head.department} onChange={H('department')} placeholder="CAD(PC-1)" className={INPUT} />
           </label>
 
-          <label>Ledger Month
-            <input type="month" value={head.ledgerMonth} onChange={H('ledgerMonth')} className="w-full" />
+          <label className={LBL}>Ledger Month
+            <input type="month" value={head.ledgerMonth} onChange={H('ledgerMonth')} className={INPUT} />
           </label>
 
           {/* ledger category of every item row (only used by the IT Accessories ledger, not printed on the form) */}
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-            <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          <div className="rounded-md border border-zinc-300 bg-zinc-50 p-2">
+            <div className={`mb-1.5 ${TITLE}`}>
               Ledger category (per item)
             </div>
             <div className="space-y-2">
               {items.map((it, i) => (
                 <div key={i}>
-                  <div className="truncate text-[11px] text-slate-600" title={it.particulars}>
+                  <div className="truncate text-[11px] text-zinc-600" title={it.particulars}>
                     {i + 1}. {it.particulars || '(item name not typed yet)'}
                   </div>
                   <CategorySelect categories={categories} value={it.categoryId} onChange={(v) => setItem(i, 'categoryId', v)} />
@@ -259,39 +271,46 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
           </div>
 
           {!lockHead && (
-            <label>Summary date label (optional)
+            <label className={LBL}>Summary date label (optional)
               <input
                 value={head.dateLabel}
                 onChange={H('dateLabel')}
                 placeholder="1-October-2026(For October)"
-                className="w-full"
+                className={INPUT}
               />
             </label>
           )}
         </div>
 
-        {err && <div className="err mt-3 text-xs">{err}</div>}
+        {err && (
+          <div className="mt-3 rounded-md border border-l-4 border-zinc-300 border-l-red-700 bg-white px-3 py-2 text-xs text-red-700">{err}</div>
+        )}
 
-        <div className="mt-3 flex gap-2 border-t border-slate-200 pt-3">
-          <button disabled={busy} className="flex-1">{busy ? 'Saving...' : 'Save'}</button>
-          <a className="btn sec flex-1 text-center" href={bill ? '/bill/' + bill.billNo : '/summary'}>Cancel</a>
+        <div className="mt-3 flex gap-2 border-t border-zinc-200 pt-3">
+          <button disabled={busy} className={`${BTN_PRI} flex-1`}>{busy ? 'Saving...' : 'Save'}</button>
+          <a className={`${BTN_SEC} flex-1`} href={bill ? '/bill/' + bill.billNo : '/summary'}>Cancel</a>
         </div>
       </aside>
     </form>
   );
 }
 
-
-export default function New() {
-  const [query, setQuery] = useState(null); const isReady = !!query;
-  useEffect(() => { setQuery(Object.fromEntries(new URLSearchParams(window.location.search))); }, []);
+// `query` comes from the URL (via NewRouter below) so it always matches the current link
+function New({ query }) {
   const [data, setData] = useState(null); const [mode, setMode] = useState(''); const [parentNo, setParentNo] = useState('');
   const load = async () => {
     const [suppliers, categories, bills, next] = await Promise.all([api('/api/suppliers'), api('/api/categories'), api('/api/bills'), api('/api/bills/next')]);
     setData({ suppliers, categories, bills, nextBillNo: next.nextBillNo });
   };
-  useEffect(() => { if (isReady) load(); }, [isReady]);
-  if (!data) return <><h1>New</h1>Loading...</>;
+  useEffect(() => { load(); }, []);
+  if (!data) {
+    return (
+      <div className="w-full min-w-0">
+        <h2 className="text-2xl font-semibold text-zinc-900">New</h2>
+        <p className="mt-3 text-sm text-zinc-500">Loading...</p>
+      </div>
+    );
+  }
 
   const type = query.type === 'resolution' ? 'resolution' : 'application';
   const find = (n) => data.bills.find((b) => b.billNo === Number(n));
@@ -309,28 +328,28 @@ export default function New() {
       <>
         {!parent && !edit && (
           // hidden (not unmounted) while a bill is selected, so the filters you used stay put
-          <div className={'card noprint' + (parentNo ? ' hidden' : '')}>
-            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Choose the resolution type</div>
+          <div className={`${CARD} noprint mb-3 p-4` + (parentNo ? ' hidden' : '')}>
+            <div className={`mb-2 ${TITLE}`}>Choose the resolution type</div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" className={mode === 'B' ? '' : 'sec'} onClick={() => setMode('B')}>
+              <button type="button" className={mode === 'B' ? BTN_PRI : BTN_SEC} onClick={() => setMode('B')}>
                 Type B: Direct Resolution (no Application)
               </button>
-              <button type="button" className={mode === 'A' ? '' : 'sec'} onClick={() => setMode('A')}>
+              <button type="button" className={mode === 'A' ? BTN_PRI : BTN_SEC} onClick={() => setMode('A')}>
                 Type A: Resolution after an existing Application
               </button>
             </div>
             {mode === 'A' && (
-              <div className="mt-3 border-t border-slate-200 pt-3">
+              <div className="mt-3 border-t border-zinc-200 pt-3">
                 <ApplicationPicker bills={data.bills} onPick={(no) => setParentNo(String(no))} />
               </div>)}
           </div>)}
         {m === 'A' && parentNo && !parent && find(parentNo) && (
-          <div className="noprint mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+          <div className="noprint mb-2 flex flex-wrap items-center gap-2 text-xs text-zinc-600">
             <span>
-              Application selected: <b className="text-slate-900">MIS-{find(parentNo).billNo}</b>
+              Application selected: <b className="text-zinc-900">MIS-{find(parentNo).billNo}</b>
               {find(parentNo).fileName ? ' · ' + find(parentNo).fileName : ''}
             </span>
-            <button type="button" className="sec !px-2 !py-1 text-[11px]" onClick={() => setParentNo('')}>
+            <button type="button" className={BTN_SM} onClick={() => setParentNo('')}>
               Change
             </button>
           </div>)}
@@ -341,10 +360,27 @@ export default function New() {
   }
   return (
     <div className="w-full min-w-0">
-      <h1 className="noprint !mb-2">
+      <h2 className="noprint mb-3 text-2xl font-semibold text-zinc-900">
         {type === 'application' ? (query.edit ? 'Edit Application' : 'New Application') : 'Resolution'}
-      </h1>
+      </h2>
       {body}
     </div>
+  );
+}
+
+// Reads the live URL query. key = full query string, so ANY change in the link
+// (application <-> resolution, edit=, parent=) remounts <New> with fresh state.
+function NewRouter() {
+  const sp = useSearchParams();
+  const query = Object.fromEntries(sp.entries());
+  return <New key={sp.toString()} query={query} />;
+}
+
+// useSearchParams needs a Suspense boundary for production builds
+export default function Page() {
+  return (
+    <Suspense fallback={<p className="text-sm text-zinc-500">Loading...</p>}>
+      <NewRouter />
+    </Suspense>
   );
 }

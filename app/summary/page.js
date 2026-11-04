@@ -22,51 +22,70 @@ const viewHref = (b) => '/bill/' + b.billNo;
 // Billing remark: the Resolution remark when there is one, otherwise the Application remark
 const remarkOf = (b) => (b.resolution && b.resolution.remarks) || (b.application && b.application.remarks) || '';
 
-/* ---------------- Tailwind class sets ---------------- */
-const WRAP = 'whitespace-pre-wrap [overflow-wrap:anywhere]';
+// Split an item description into separate items at commas / new lines.
+// Commas inside brackets are kept, so "Toner 89 A (With Chip, Black)" stays one item.
+const splitItems = (s) => {
+  const out = [];
+  let cur = '';
+  let depth = 0;
+  for (const ch of String(s || '')) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+    if ((ch === ',' || ch === '\n') && depth === 0) {
+      if (cur.trim()) out.push(cur.trim());
+      cur = '';
+    } else cur += ch;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+};
 
-// toolbar buttons
-const TB = 'inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-[13px] font-semibold leading-none transition';
-const TB_PRI = `${TB} border-slate-900 bg-slate-900 text-white hover:bg-slate-800`;
-const TB_SEC = `${TB} border-slate-300 bg-white text-slate-900 hover:bg-slate-100`;
+/* ---------------- Theme: Flat Teal & Zinc (Tailwind only) ---------------- */
+const WRAP = 'whitespace-pre-wrap [overflow-wrap:anywhere]';
+const focus = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/40';
+
+// toolbar buttons (compact height, theme colours)
+const TB = `inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-3 text-[13px] font-medium leading-none disabled:opacity-60 ${focus}`;
+const TB_PRI = `${TB} border-teal-800 bg-teal-800 text-white hover:bg-teal-900`;
+const TB_SEC = `${TB} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50`;
 
 // filters
-const CTRL = 'h-8 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-2 text-xs text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200';
+const CTRL = 'h-8 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-xs text-zinc-900 outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-700/25';
 
 // inline edit inputs
-const IN = 'box-border w-full rounded-md border border-blue-300 bg-white px-1.5 py-1 text-[13px] text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200';
+const IN = 'box-border w-full rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-[13px] text-zinc-900 outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-700/25';
 
 // icon buttons
-const IB = 'inline-flex h-7 w-7 items-center justify-center rounded-md border p-0 transition disabled:cursor-not-allowed disabled:opacity-40';
-const IB_DEF = `${IB} border-slate-300 bg-white text-slate-700 hover:bg-slate-100`;
-const IB_OK = `${IB} border-green-600 bg-green-600 text-white hover:bg-green-700`;
+const IB = `inline-flex h-7 w-7 items-center justify-center rounded-md border p-0 disabled:cursor-not-allowed disabled:opacity-40 ${focus}`;
+const IB_DEF = `${IB} border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50`;
+const IB_OK = `${IB} border-teal-800 bg-teal-800 text-white hover:bg-teal-900`;
 
-// badges
-const BD = 'inline-block max-w-full whitespace-pre-wrap rounded-lg px-2 py-0.5 text-left text-[11.5px] font-semibold leading-snug [overflow-wrap:anywhere]';
+// badges: flat, bordered, one accent (teal) + one alert (red), everything else zinc
+const BD = 'inline-block max-w-full whitespace-pre-wrap rounded-md border px-2 py-0.5 text-left text-[11.5px] font-medium leading-snug [overflow-wrap:anywhere]';
 const statusTone = (s = '') => {
   const x = String(s).toLowerCase();
-  if (!x) return 'bg-slate-200 text-slate-700';
-  if (x.includes('did not')) return 'bg-red-100 text-red-800';
-  if (x.includes('sent to a/c')) return 'bg-green-100 text-green-800';
-  if (x === 'done') return 'bg-emerald-100 text-emerald-800';
-  if (x.includes('pending')) return 'bg-amber-100 text-amber-800';
-  if (x.includes('uploaded')) return 'bg-blue-100 text-blue-800';
-  return 'bg-slate-200 text-slate-700';
+  if (!x) return 'border-zinc-300 bg-zinc-50 text-zinc-600';
+  if (x.includes('did not')) return 'border-red-300 bg-white text-red-700';
+  if (x.includes('sent to a/c') || x === 'done') return 'border-teal-700/40 bg-teal-50 text-teal-900';
+  return 'border-zinc-300 bg-zinc-50 text-zinc-700'; // pending, uploaded, custom
 };
 const stageTone = (s) =>
-  s === 'Application to Resolution' ? 'bg-violet-100 text-violet-800'
-    : s === 'Resolution' ? 'bg-emerald-100 text-emerald-800'
-      : 'bg-blue-100 text-blue-800';
+  s === 'Application to Resolution' ? 'border-amber-300 bg-amber-50 text-amber-800'   // in progress
+    : s === 'Resolution' ? 'border-teal-800 bg-teal-800 text-white'                    // completed
+      : 'border-sky-300 bg-sky-50 text-sky-800';                                       // Application only
 
 // Due / Paid pill
-const PAY = 'inline-block cursor-pointer rounded-full border-0 px-2.5 py-0.5 text-[11.5px] font-bold leading-snug hover:brightness-95';
+const PAY = `inline-block cursor-pointer rounded-md border px-2.5 py-0.5 text-[11.5px] font-medium leading-snug hover:bg-zinc-50 ${focus}`;
+const PAY_DUE = 'border-red-300 bg-white text-red-700 hover:bg-red-50';
+const PAY_PAID = 'border-teal-700/40 bg-teal-50 text-teal-900';
 
 // table cells (explicit display utilities so global styles cannot break the table)
-const TH = 'table-cell break-words bg-slate-900 px-2 py-3.5 text-left align-middle text-[11px] font-semibold uppercase tracking-wide text-slate-50 print:bg-slate-200 print:text-black';
-const TD = 'table-cell border-b border-slate-200 px-2 py-4 align-top text-[13px] text-slate-900 [overflow-wrap:anywhere]';
+// "!" forces the header colours to win over the global `th` styles (dark slate bg, white text)
+const TH = 'table-cell break-words !border-x-0 !border-t-0 !border-b !border-solid !border-zinc-700 !bg-zinc-800 px-2 py-2.5 text-left align-middle text-[12px] !font-medium !text-white';
+const TD = 'table-cell border-b border-zinc-200 px-2 py-3 align-top text-[13px] text-zinc-800 [overflow-wrap:anywhere]';
 
-const SUB = 'mt-0.5 block text-[11px] font-normal text-slate-500';
-const LINK = 'font-semibold text-blue-700 hover:underline';
+const SUB = 'mt-0.5 block text-[11px] font-normal text-zinc-500';
+const LINK = 'font-medium text-teal-800 hover:underline';
 
 // column widths (sum = 100%) so the table always fits the screen: no horizontal scroll
 const COLS = [
@@ -157,6 +176,10 @@ export default function Summary() {
     return out;
   }, [rows]);
 
+  // automatic serial numbers 1, 2, 3... in the order the rows are shown
+  // (continues across month groups and follows the current filters)
+  const serial = useMemo(() => new Map(rows.map((b, i) => [b.billNo, i + 1])), [rows]);
+
   const toggle = (b) => {
     if (editing) return;
     if (b.paymentStatus === 'Due') {
@@ -166,8 +189,8 @@ export default function Summary() {
   };
 
   /* ---------- edit mode ---------- */
-  // Only SL / Department / Status are editable here. Supplier Name, Item Description,
-  // Amount and the date stay read only: they come from the Application / Resolution form.
+  // Only Department / Status are editable here. SL is automatic (1, 2, 3...). Supplier Name,
+  // Item Description, Amount and the date stay read only: they come from the Application / Resolution form.
   // Status is set automatically when a scan file is uploaded (bill page), and here it can be
   // changed by choosing from the dropdown OR by writing your own text ("Write my own...").
   const startEdit = (b) => {
@@ -175,7 +198,6 @@ export default function Summary() {
     const st = b.status || '';
     setEditing(b.billNo);
     setDraft({
-      sl: String(b.sl ?? ''),
       department: b.department || '',
       status: st,
       statusMode: st && !STATUSES.includes(st) ? 'custom' : 'list',
@@ -187,7 +209,6 @@ export default function Summary() {
   const saveEdit = async (b) => {
     const body = {};
     const newStatus = String(draft.status || '').trim();
-    if (Number(draft.sl) !== b.sl) body.sl = draft.sl;
     if (draft.department !== (b.department || '')) body.department = draft.department;
     if (newStatus !== (b.status || '')) body.status = newStatus;
 
@@ -207,24 +228,37 @@ export default function Summary() {
   /* ---------- field renderers: text when viewing, input when editing ---------- */
   const isEd = (b) => editing === b.billNo;
 
-  const vSl = (b) => (isEd(b)
-    ? <input className={IN} value={draft.sl} onChange={up('sl')} />
-    : <span>{b.sl}</span>);
+  // SL = automatic row number (1, 2, 3...), never edited
+  const vSl = (b) => <span className="tabular-nums">{serial.get(b.billNo)}</span>;
 
   // Date = the date typed in the Application / Resolution form, so editing the form
   // (date or optional date label) is reflected here automatically. Never edited in Summary.
   const vDate = (b) => (
-    <span className={WRAP}>
+    <span className={`${WRAP} tabular-nums`}>
       {formatDate(b.date)}
       {b.dateLabel && <span className={SUB}>{b.dateLabel}</span>}
     </span>
   );
 
   // Read only: change Item Description / Amount in the Application / Resolution form.
-  const vItem = (b) => <span className={WRAP}>{b.itemDescription}</span>;
+  // Shown as a numbered list: 1. Toner 85 A  2. Toner 76 A ...  (one item = plain text)
+  const vItem = (b) => {
+    const items = splitItems(b.itemDescription);
+    if (items.length <= 1) return <span className={WRAP}>{b.itemDescription}</span>;
+    return (
+      <ol className="m-0 list-none space-y-0.5 p-0">
+        {items.map((t, i) => (
+          <li key={i} className="flex gap-1.5">
+            <span className="shrink-0 tabular-nums text-zinc-500">{i + 1}.</span>
+            <span className={`min-w-0 ${WRAP}`}>{t}</span>
+          </li>
+        ))}
+      </ol>
+    );
+  };
 
   const vAmount = (b) => (
-    <span className="font-semibold tabular-nums">
+    <span className="font-semibold tabular-nums text-zinc-900">
       {fmt(b.summaryAmount)}
       {b.summaryAmountExpr && String(b.summaryAmountExpr) !== String(b.summaryAmount) && (
         <span className={`${SUB} break-all`}>{b.summaryAmountExpr}</span>
@@ -282,7 +316,7 @@ export default function Summary() {
   const vPay = (b) => (
     <button
       type="button"
-      className={`${PAY} ${b.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+      className={`${PAY} ${b.paymentStatus === 'Paid' ? PAY_PAID : PAY_DUE}`}
       onClick={() => toggle(b)}
       title={b.paidDate ? 'Paid on ' + b.paidDate : 'Click to change'}
     >
@@ -323,12 +357,12 @@ export default function Summary() {
     : `${f.month ? monthLabel(f.month) : 'All months'} · ${rows.length} bill${rows.length === 1 ? '' : 's'}`;
 
   return (
-    <div className="w-full min-w-0 text-slate-900">
+    <div className="w-full min-w-0 text-zinc-900">
       {/* Title + actions */}
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-baseline gap-x-3">
-          <h1 className="!m-0 text-lg font-bold tracking-tight text-slate-900">MIS Purchase Report Summary</h1>
-          <p className="text-xs text-slate-500">{subtitle}</p>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="!m-0 text-2xl font-semibold text-zinc-900">MIS Purchase Report Summary</h1>
+          <p className="mt-0.5 text-sm tabular-nums text-zinc-500">{subtitle}</p>
         </div>
         <div className="flex gap-2 print:hidden">
           <a className={TB_PRI} href="/api/export/summary"><Download size={14} /> Export to Excel</a>
@@ -336,16 +370,28 @@ export default function Summary() {
         </div>
       </div>
 
-      {/* Totals */}
-      <div className="mb-2 flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-xs text-slate-500 print:hidden">
-        <span>Bills <b className="text-slate-900">{rows.length}</b></span>
-        <span>Amount <b className="tabular-nums text-slate-900">{fmt(sum(rows))}</b></span>
-        <span>Due <b className="tabular-nums text-red-600">{fmt(sum(due))}</b></span>
-        <span>Paid <b className="tabular-nums text-green-700">{fmt(sum(paid))}</b></span>
+      {/* Totals: KPI strip (1px grid lines come from gap-px on a zinc-200 background) */}
+      <div className="mb-3 grid grid-cols-2 gap-px border border-zinc-300 bg-zinc-200 sm:grid-cols-4 print:hidden">
+        <div className="bg-white px-3 py-2">
+          <div className="text-xs text-zinc-500">Bills</div>
+          <div className="text-xl font-semibold tabular-nums text-zinc-900">{rows.length}</div>
+        </div>
+        <div className="bg-white px-3 py-2">
+          <div className="text-xs text-zinc-500">Amount</div>
+          <div className="text-xl font-semibold tabular-nums text-zinc-900">{fmt(sum(rows))}</div>
+        </div>
+        <div className="bg-white px-3 py-2">
+          <div className="text-xs text-zinc-500">Due</div>
+          <div className="text-xl font-semibold tabular-nums text-red-700">{fmt(sum(due))}</div>
+        </div>
+        <div className="bg-white px-3 py-2">
+          <div className="text-xs text-zinc-500">Paid</div>
+          <div className="text-xl font-semibold tabular-nums text-teal-800">{fmt(sum(paid))}</div>
+        </div>
       </div>
 
-      {/* Filters (one compact row) */}
-      <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-sm print:hidden">
+      {/* Filters (one compact toolbar row) */}
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 print:hidden">
         <input
           className={`${CTRL} sm:w-28 sm:flex-none`}
           aria-label="Bill No"
@@ -386,19 +432,19 @@ export default function Summary() {
       </div>
 
       {err && (
-        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>
+        <div className="mb-3 rounded-md border border-l-4 border-zinc-300 border-l-red-700 bg-white px-4 py-2.5 text-sm text-red-700">{err}</div>
       )}
 
       {/* ===== Desktop / print: table (always fits the screen, no scrolling) ===== */}
-      <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm [print-color-adjust:exact] xl:block xl:min-h-[calc(100vh-210px)] print:block print:rounded-none print:border-0 print:shadow-none">
+      <div className="hidden overflow-hidden rounded-md border border-zinc-300 bg-white [print-color-adjust:exact] xl:block xl:min-h-[calc(100vh-250px)] print:block print:rounded-none print:border-0">
         <table className="table w-full table-fixed border-separate border-spacing-0 text-[13px] leading-snug print:text-[10.5px]">
           <colgroup>
             {COLS.map((w, i) => (
               <col key={i} className={`${w} ${i === COLS.length - 1 ? 'print:hidden' : ''}`} />
             ))}
           </colgroup>
-          <thead className="table-header-group">
-            <tr className="table-row">
+          <thead className="table-header-group bg-zinc-800">
+            <tr className="table-row bg-zinc-800">
               <th className={`${TH} text-center`}>SL</th>
               <th className={TH}>Purchase Date</th>
               <th className={TH}>Supplier Name</th>
@@ -416,24 +462,24 @@ export default function Summary() {
           <tbody className="table-row-group">
             {groups.map((g) => (
               <Fragment key={g.mk || 'none'}>
-                <tr className="table-row bg-slate-200 print:break-inside-avoid">
-                  <td colSpan={12} className="table-cell border-b border-slate-300 px-2.5 py-1.5 text-xs font-bold tracking-wide text-slate-700">
+                <tr className="table-row bg-zinc-100 print:break-inside-avoid">
+                  <td colSpan={12} className="table-cell border-b border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700">
                     <div className="flex justify-between gap-3">
-                      <span>{monthName(g.mk).toUpperCase()}</span>
-                      <span className="font-semibold tracking-normal text-slate-600">
+                      <span>{monthName(g.mk)}</span>
+                      <span className="font-medium tabular-nums text-zinc-500">
                         {g.items.length} bill{g.items.length === 1 ? '' : 's'} · {fmt(sum(g.items))}
                       </span>
                     </div>
                   </td>
                 </tr>
-                {g.items.map((b, i) => (
+                {g.items.map((b) => (
                   <tr
                     key={b.billNo}
                     className={`table-row print:break-inside-avoid ${
-                      isEd(b) ? 'bg-blue-50' : `${i % 2 ? 'bg-slate-50' : 'bg-white'} hover:bg-indigo-50`
+                      isEd(b) ? 'bg-teal-50' : 'bg-white hover:bg-zinc-50'
                     }`}
                   >
-                    <td className={`${TD} text-center ${isEd(b) ? 'shadow-[inset_3px_0_0_#3b82f6]' : ''}`}>{vSl(b)}</td>
+                    <td className={`${TD} text-center ${isEd(b) ? 'shadow-[inset_3px_0_0_#0f766e]' : ''}`}>{vSl(b)}</td>
                     <td className={TD}>{vDate(b)}</td>
                     <td className={`${TD} ${WRAP}`}>{b.supplierName}</td>
                     <td className={TD}>{vItem(b)}</td>
@@ -442,7 +488,7 @@ export default function Summary() {
                     <td className={`${TD} text-center`}>{vStage(b)}</td>
                     <td className={TD}>{vStatus(b)}</td>
                     <td className={TD}>{vRemark(b)}</td>
-                    <td className={`${TD} text-center`}>
+                    <td className={`${TD} text-center tabular-nums`}>
                       <a className={LINK} href={'/bill/' + b.billNo}>{b.billNo}</a>
                     </td>
                     <td className={`${TD} text-center`}>{vPay(b)}</td>
@@ -458,23 +504,23 @@ export default function Summary() {
             ))}
             {!rows.length && (
               <tr className="table-row">
-                <td colSpan={12} className="table-cell p-8 text-center text-slate-400">No bills found</td>
+                <td colSpan={12} className="table-cell px-4 py-12 text-center text-sm text-zinc-500">No bills found</td>
               </tr>
             )}
           </tbody>
           {!!rows.length && (
             <tfoot className="table-footer-group">
-              <tr className="table-row bg-slate-100">
-                <td colSpan={4} className="table-cell border-t-2 border-slate-900 px-1.5 py-2 text-xs font-bold">
-                  TOTAL · {rows.length} bill{rows.length === 1 ? '' : 's'}
+              <tr className="table-row bg-zinc-50">
+                <td colSpan={4} className="table-cell border-t border-zinc-300 px-2 py-2 text-xs font-semibold text-zinc-900">
+                  Total · {rows.length} bill{rows.length === 1 ? '' : 's'}
                 </td>
-                <td className="table-cell border-t-2 border-slate-900 px-1.5 py-2 text-right text-xs font-bold tabular-nums">
+                <td className="table-cell border-t border-zinc-300 px-2 py-2 text-right text-xs font-semibold tabular-nums text-zinc-900">
                   {fmt(sum(rows))}
                 </td>
-                <td colSpan={7} className="table-cell border-t-2 border-slate-900 px-1.5 py-2 text-xs font-bold">
-                  <span className="text-red-800">Due: {fmt(sum(due))}</span>
-                  <span className="mx-2.5 text-slate-400">|</span>
-                  <span className="text-green-800">Paid: {fmt(sum(paid))}</span>
+                <td colSpan={7} className="table-cell border-t border-zinc-300 px-2 py-2 text-xs font-semibold tabular-nums">
+                  <span className="text-red-700">Due: {fmt(sum(due))}</span>
+                  <span className="mx-2.5 text-zinc-400">|</span>
+                  <span className="text-teal-800">Paid: {fmt(sum(paid))}</span>
                 </td>
               </tr>
             </tfoot>
@@ -486,30 +532,30 @@ export default function Summary() {
       <div className="space-y-3 xl:hidden print:hidden">
         {groups.map((g) => (
           <Fragment key={g.mk || 'none'}>
-            <div className="flex items-center justify-between rounded-md bg-slate-200 px-3 py-1.5 text-xs font-bold tracking-wide text-slate-700">
-              <span>{monthName(g.mk).toUpperCase()}</span>
-              <span className="font-semibold">{g.items.length} · {fmt(sum(g.items))}</span>
+            <div className="flex items-center justify-between rounded-md border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-700">
+              <span>{monthName(g.mk)}</span>
+              <span className="font-medium tabular-nums text-zinc-500">{g.items.length} · {fmt(sum(g.items))}</span>
             </div>
             {g.items.map((b) => {
-              const lbl = 'text-[11px] font-semibold uppercase tracking-wide text-slate-500';
+              const lbl = 'text-xs font-medium text-zinc-500';
               return (
                 <div
                   key={b.billNo}
-                  className={`rounded-xl border bg-white p-3 shadow-sm ${
-                    isEd(b) ? 'border-blue-400 ring-2 ring-blue-200' : 'border-slate-200'
+                  className={`rounded-md border bg-white p-3 ${
+                    isEd(b) ? 'border-teal-700 ring-2 ring-teal-700/25' : 'border-zinc-300'
                   }`}
                 >
                   {/* header */}
-                  <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="mb-2 flex items-center justify-between gap-2 ">
                     <div className="min-w-0">
-                      <a href={'/bill/' + b.billNo} className={`${LINK} text-sm`}>#{b.billNo}</a>
-                      <div className={`text-xs text-slate-500 ${WRAP}`}>{b.supplierName}</div>
+                      <a href={'/bill/' + b.billNo} className={`${LINK} text-sm tabular-nums`}>#{b.billNo}</a>
+                      <div className={`text-xs text-zinc-500 ${WRAP}`}>{b.supplierName}</div>
                     </div>
                     {vPay(b)}
                   </div>
 
                   {/* fields */}
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-[13px]">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-zinc-200 pt-2 text-[13px] text-zinc-800 ">
                     <div><div className={lbl}>SL</div>{vSl(b)}</div>
                     <div><div className={lbl}>Purchase Date</div>{vDate(b)}</div>
                     <div className="col-span-2"><div className={lbl}>Item Description</div>{vItem(b)}</div>
@@ -520,7 +566,7 @@ export default function Summary() {
                   </div>
 
                   {/* footer */}
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 pt-3">
                     {vStage(b)}
                     <div className="flex gap-1.5">
                       {editBtns(b)}
@@ -533,11 +579,15 @@ export default function Summary() {
           </Fragment>
         ))}
         {!rows.length && (
-          <div className="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-400">No bills found</div>
+          <div className="rounded-md border border-zinc-300 bg-white px-4 py-12 text-center text-sm text-zinc-500">No bills found</div>
         )}
       </div>
 
-      {f.supplier && <p className="mt-3"><b>{f.supplier}</b> - Total Due: {fmt(sum(due))}</p>}
+      {f.supplier && (
+        <p className="mt-3 text-sm tabular-nums text-zinc-700">
+          <b className="font-semibold text-zinc-900">{f.supplier}</b> - Total Due: <span className="text-red-700">{fmt(sum(due))}</span>
+        </p>
+      )}
     </div>
   );
 }

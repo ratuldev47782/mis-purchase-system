@@ -4,17 +4,16 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/client';
 
-/* ---------------- Tailwind class sets ---------------- */
-const FOCUS = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0E7C7B]';
-const CARD = 'overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm';
-const CARD_HEAD = 'border-b border-slate-200 bg-slate-50 px-5 py-3.5';
-const LABEL = 'block text-[13px] font-semibold text-slate-700';
-const HINT = 'mt-0.5 block text-xs font-normal text-slate-500';
-const FIELD = 'mt-2 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 transition focus:border-[#0E7C7B] focus:outline-none focus:ring-2 focus:ring-teal-100';
-const BTN = `inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg border px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS}`;
-const BTN_PRI = `${BTN} border-[#12263F] bg-[#12263F] text-white hover:bg-[#1B3555]`;
-const BTN_TEAL = `${BTN} border-[#0E7C7B] bg-[#0E7C7B] text-white hover:bg-[#0B6968]`;
-const BTN_RED = `inline-flex h-9 items-center justify-center whitespace-nowrap rounded-lg border border-red-200 bg-white px-3 text-[13px] font-semibold text-red-700 transition hover:bg-red-50 ${FOCUS}`;
+/* ---------------- Theme: Flat Teal & Zinc (Tailwind only) ---------------- */
+const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/40';
+const CARD = 'overflow-hidden rounded-md border border-zinc-300 bg-white';
+const CARD_HEAD = 'border-b border-zinc-200 px-4 py-3';
+const LABEL = 'block text-[13px] font-medium text-zinc-800';
+const HINT = 'mt-0.5 block text-xs font-normal text-zinc-500';
+const FIELD = 'mt-1.5 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-700/25';
+const BTN = `inline-flex h-9 items-center justify-center whitespace-nowrap rounded-md border px-4 text-[13px] font-medium disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS}`;
+const BTN_PRI = `${BTN} border-teal-800 bg-teal-800 text-white hover:bg-teal-900`;
+const BTN_RED = `inline-flex h-8 items-center justify-center whitespace-nowrap rounded-md border border-red-300 bg-white px-3 text-xs font-medium text-red-700 hover:bg-red-50 ${FOCUS}`;
 
 export default function Settings() {
   const [s, setS] = useState(null); const [cats, setCats] = useState([]); const [name, setName] = useState(''); const [msg, setMsg] = useState('');
@@ -25,39 +24,37 @@ export default function Settings() {
   if (!s) {
     return (
       <div className="mx-auto max-w-5xl">
-        <h1 className="!m-0 text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
-        <p className="mt-3 text-sm text-slate-500">Loading...</p>
+        <h2 className="text-2xl font-semibold text-zinc-900">Settings</h2>
+        <p className="mt-3 text-sm text-zinc-500">Loading...</p>
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-5xl">
-      <div className="mb-5">
-        <h1 className="!m-0 text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
-        <p className="mt-1 text-sm text-slate-500">Bill numbering, ledger amounts and the item names used in the IT Accessories sheet.</p>
+      <div className="mb-4">
+        <h2 className="text-2xl font-semibold text-zinc-900">Settings</h2>
+        <p className="mt-0.5 text-sm text-zinc-500">Bill numbering, ledger amounts and the item names used in the IT Accessories sheet.</p>
       </div>
 
       {msg && (
         <div
           role="status"
-          className={`mb-4 rounded-lg border px-4 py-2.5 text-sm font-medium ${
-            msg === 'Saved'
-              ? 'border-green-200 bg-green-50 text-green-800'
-              : 'border-red-200 bg-red-50 text-red-700'
+          className={`mb-4 rounded-md border border-l-4 border-zinc-300 bg-white px-4 py-2.5 text-sm ${
+            msg === 'Saved' ? 'border-l-teal-700 text-zinc-800' : 'border-l-red-700 text-red-700'
           }`}
         >
           {msg}
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-5">
+      <div className="grid gap-4 lg:grid-cols-5">
         {/* General settings */}
         <section className={`${CARD} lg:col-span-2 lg:self-start`}>
           <div className={CARD_HEAD}>
-            <h2 className="!m-0 text-base font-semibold text-slate-900">General</h2>
+            <h3 className="text-sm font-semibold text-zinc-900">General</h3>
           </div>
-          <div className="space-y-5 p-5">
+          <div className="space-y-4 px-4 py-4">
             <label className={LABEL}>
               Starting Bill No
               <span className={HINT}>Used only when there are no bills yet.</span>
@@ -96,20 +93,20 @@ export default function Settings() {
         <section className={`${CARD} lg:col-span-3`}>
           <div className={`${CARD_HEAD} flex items-center justify-between gap-3`}>
             <div>
-              <h2 className="!m-0 text-base font-semibold text-slate-900">Categories</h2>
-              <p className="mt-0.5 text-xs text-slate-500">Item&apos;s Name in the IT Accessories sheet. Edit a name and click away to save it.</p>
+              <h3 className="text-sm font-semibold text-zinc-900">Categories</h3>
+              <p className="mt-0.5 text-xs text-zinc-500">Item&apos;s Name in the IT Accessories sheet. Edit a name and click away to save it.</p>
             </div>
-            <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-700">{cats.length}</span>
+            <span className="rounded-md border border-zinc-300 bg-zinc-50 px-2 py-0.5 text-xs font-medium tabular-nums text-zinc-700">{cats.length}</span>
           </div>
 
-          <div className="p-5">
+          <div className="px-4 py-4">
             {cats.length ? (
-              <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+              <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-300">
                 {cats.map((c, i) => (
-                  <li key={c._id} className="flex items-center gap-3 bg-white px-3 py-2 transition hover:bg-slate-50">
-                    <span className="w-6 shrink-0 text-center text-xs tabular-nums text-slate-400">{i + 1}</span>
+                  <li key={c._id} className="flex items-center gap-3 bg-white px-3 py-1.5 hover:bg-zinc-50">
+                    <span className="w-6 shrink-0 text-center text-xs tabular-nums text-zinc-500">{i + 1}</span>
                     <input
-                      className="h-9 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 text-sm text-slate-900 transition hover:border-slate-300 focus:border-[#0E7C7B] focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100"
+                      className="h-8 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 text-sm text-zinc-900 outline-none hover:border-zinc-300 focus:border-teal-700 focus:bg-white focus:ring-2 focus:ring-teal-700/25"
                       defaultValue={c.name}
                       aria-label={`Category ${i + 1} name`}
                       onBlur={(e) => e.target.value !== c.name && run(() => api('/api/categories', { method: 'PUT', body: { ...c, name: e.target.value } }))}
@@ -125,21 +122,21 @@ export default function Settings() {
                 ))}
               </ul>
             ) : (
-              <div className="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-400">
+              <div className="rounded-md border border-dashed border-zinc-300 px-4 py-12 text-center text-sm text-zinc-500">
                 No categories yet. Add the first one below.
               </div>
             )}
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               <input
-                className="h-10 min-w-[200px] flex-1 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 transition focus:border-[#0E7C7B] focus:outline-none focus:ring-2 focus:ring-teal-100"
+                className="h-9 min-w-[200px] flex-1 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-teal-700 focus:ring-2 focus:ring-teal-700/25"
                 placeholder="New category"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
               <button
                 type="button"
-                className={BTN_TEAL}
+                className={BTN_PRI}
                 onClick={() => run(async () => { await api('/api/categories', { method: 'POST', body: { name } }); setName(''); })}
               >
                 Add category

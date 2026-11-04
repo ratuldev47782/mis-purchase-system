@@ -4,7 +4,12 @@
 
 import { useEffect, useState } from 'react';
 import { Menu } from 'lucide-react';
+import { IBM_Plex_Sans } from 'next/font/google';
 import Sidebar from './Sidebar';
+
+const plex = IBM_Plex_Sans({ subsets: ['latin'], weight: ['400', '500', '600'], display: 'swap' });
+
+const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/40';
 
 export default function AppShell({ children }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -25,17 +30,18 @@ export default function AppShell({ children }) {
   };
 
   return (
-    <>
-      {/* Mobile top bar */}
-      <div className="noprint fixed inset-x-0 top-0 z-40 flex h-12 items-center gap-3 bg-slate-900 px-3 md:hidden">
+    <div className={`bg-zinc-100 text-zinc-900 ${plex.className}`}>
+      {/* Mobile top bar: flat white, bordered */}
+      <div className="noprint fixed inset-x-0 top-0 z-40 flex h-12 items-center gap-3 border-b border-zinc-300 bg-white px-3 md:hidden">
         <button
+          type="button"
           onClick={() => setOpen(true)}
-          className="!bg-transparent !px-0 !py-0 text-white"
+          className={`!rounded-md !border-0 !bg-transparent !px-1 !py-1 text-zinc-700 hover:!bg-zinc-100 ${FOCUS}`}
           aria-label="Open menu"
         >
-          <Menu size={22} />
+          <Menu className="h-5 w-5" />
         </button>
-        <span className="text-sm font-semibold text-white">MIS Purchase Billing ERP</span>
+        <span className="text-sm font-semibold text-zinc-900">MIS Purchase Billing ERP</span>
       </div>
 
       <Sidebar
@@ -45,13 +51,14 @@ export default function AppShell({ children }) {
         onClose={() => setOpen(false)}
       />
 
+      {/* h-screen + overflow-auto: the page scrolls inside main, so one-viewport pages can size to 100vh */}
       <main
-        className={`min-h-screen min-w-0 pt-12 transition-[margin] duration-200 md:pt-0 ${
+        className={`h-screen min-w-0 overflow-auto bg-zinc-100 transition-[margin] duration-200 ${
           collapsed ? 'md:ml-14' : 'md:ml-56'
         }`}
       >
-        <div className="app-content min-w-0 p-2 md:p-3">{children}</div>
+        <div className="app-content min-w-0 p-4 pt-16 md:p-5 md:pt-5">{children}</div>
       </main>
-    </>
+    </div>
   );
 }
