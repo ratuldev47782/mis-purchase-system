@@ -10,4 +10,7 @@ export function middleware(req) {
   url.pathname = '/login';
   return NextResponse.redirect(url);
 }
-export const config = { matcher: ['/((?!_next|favicon.ico|HKD_LOGO.png).*)'] };
+export const config = {
+  // skip Next internals and public static files (images, icons, fonts)
+  matcher: ['/((?!_next|favicon.ico|.*\\.(?:png|jpe?g|svg|webp|gif|ico|woff2?)$).*)'],
+};

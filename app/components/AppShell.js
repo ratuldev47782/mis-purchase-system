@@ -3,6 +3,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { IBM_Plex_Sans } from 'next/font/google';
 import Sidebar from './Sidebar';
@@ -12,6 +13,7 @@ const plex = IBM_Plex_Sans({ subsets: ['latin'], weight: ['400', '500', '600'], 
 const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/40';
 
 export default function AppShell({ children }) {
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [open, setOpen] = useState(false); // mobile drawer
 
@@ -28,6 +30,11 @@ export default function AppShell({ children }) {
       localStorage.setItem('sidebar-collapsed', next ? '1' : '0');
     } catch {}
   };
+
+  // Login page: no sidebar, no top bar, no app shell at all
+  if (pathname === '/login') {
+    return <div className={plex.className}>{children}</div>;
+  }
 
   return (
     <div className={`bg-zinc-100 text-zinc-900 ${plex.className}`}>
