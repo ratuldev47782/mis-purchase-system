@@ -28,6 +28,64 @@ const FIRST_COLS = ['w-[3%]', 'w-[14%]'];
 const QTY_COL = 'w-[2.1%]';
 const AMT_COL = 'w-[4.28%]';
 
+/*
+  Print CSS
+  - A4 landscape, 90% scale
+  - Parent layout (sidebar / h-screen / overflow-auto wrappers) was clipping the print to the
+    first page. We reset height/overflow/position on EVERY ancestor of .ledger-print so the
+    browser can paginate the whole table into 2+ pages.
+  - Sidebar / nav / header outside the ledger are hidden.
+  - Rows never split across pages, table header repeats on every page.
+*/
+const PRINT_CSS = `
+@page { size: A4 landscape; margin: 6mm; }
+
+@media print {
+  html, body {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  /* every ancestor of the ledger: no fixed height, no clipping, no sticky/fixed/flex-grid trap */
+  *:has(.ledger-print) {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+    display: block !important;
+    transform: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* hide app chrome that is not part of the ledger */
+  body :is(aside, nav, header, footer):not(.ledger-print *) { display: none !important; }
+
+  .ledger-print {
+    zoom: 0.9;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* no sticky inside the sheet when printing */
+  .ledger-print table,
+  .ledger-print table * {
+    position: static !important;
+  }
+
+  .ledger-print table { page-break-inside: auto; }
+  .ledger-print thead { display: table-header-group; }   /* repeat header on page 2 */
+  .ledger-print tfoot { display: table-footer-group; }
+  .ledger-print tr { break-inside: avoid; page-break-inside: avoid; }
+}
+`;
+
 export default function Ledger() {
   const [ready, setReady] = useState(false);
   const [bill, setBill] = useState('');
@@ -76,8 +134,8 @@ export default function Ledger() {
 
   return (
     <div className="ledger-print w-full min-w-0 [&_*]:font-[family-name:var(--font-poppins)]">
-      {/* paper size + 90% print scale (the one thing Tailwind cannot do) */}
-      <style>{'@page{size:A4 landscape;margin:6mm}@media print{.ledger-print{zoom:0.9}}'}</style>
+      {/* paper size + 90% print scale + multi-page print fix */}
+      <style>{PRINT_CSS}</style>
 
       {/* Title + controls in one compact row */}
       <div className="mb-2 flex flex-wrap items-center gap-2 print:hidden">
@@ -112,7 +170,7 @@ export default function Ledger() {
       </div>
 
       {err && (
-        <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>
+        <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 print:hidden">{err}</div>
       )}
 
       {/* Sheet heading: logo + company name centered, same look as the Excel export */}
