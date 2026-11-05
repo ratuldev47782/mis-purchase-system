@@ -1,9 +1,11 @@
 // app/components/RequestForm.js
-
 //
 // One component that draws the "REQUEST FOR PAYMENT" paper form exactly like the Excel sheet.
 //   <RequestForm d={paperFromBill(bill)} />                 -> read only (print page, previews)
 //   <RequestForm d={d} edit={{ ...handlers }} />             -> same paper, but cells are inputs (new / edit page)
+//
+// Comment rows (row.c / item.isComment): one merged cell (Particulars -> last column) with multi-line
+// text. No unit, qty, U/P, amount.
 'use client';
 import { useEffect, useRef } from 'react';
 import { fmt, numberToWords } from '@/lib/calc';
@@ -46,6 +48,7 @@ const CSS = `
 .rf-tbl .c{text-align:center}.rf-tbl .r{text-align:right}.rf-tbl .l{text-align:left}
 .rf-tbl .bl{color:#00f}
 .rf-tbl .g{color:#666}
+.rf-tbl .cm{vertical-align:top;white-space:pre-wrap;font-size:11.5px;line-height:15px;padding:3px 4px}
 .rf-tbl .thick td{border-top:2px solid #000}
 .rf-tbl .tot td{font-size:11.5px;height:24px;white-space:nowrap}
 .rf-tbl .tot td.sm{font-size:10px;white-space:normal;line-height:1.05}
@@ -72,6 +75,7 @@ const CSS = `
 .rf-sheet input[type=checkbox]{width:14px;margin-right:4px!important;accent-color:#00f}
 .rf-sheet .nb{width:58px;height:20px;border:1px solid #000!important;text-align:center}
 .rf-sheet textarea{resize:none;line-height:21px;height:60px!important;padding:0 2px!important;background:transparent!important}
+.rf-sheet textarea.cmt{height:auto!important;line-height:15px;padding:1px 2px!important;overflow:hidden;font-size:11.5px!important}
 .rf-x{border:0;background:transparent;color:#c00;font-weight:700;cursor:pointer;font-size:14px;line-height:1;padding:0 2px}
 .rf-add{border:1px dashed #00f;background:#f4f7ff;color:#00f;font-family:inherit;font-weight:700;font-size:11px;padding:1px 8px;cursor:pointer;border-radius:3px}
 .rf-addbar{margin-top:4px}
@@ -94,20 +98,43 @@ const CSS = `
 const n0 = (v) => Number(v) || 0;
 const Box = ({ children }) => <span className="rf-box">{children}</span>;
 
+// rough number of text lines (for the textarea height). ~95 chars fit in the merged cell
+const countLines = (s, per = 95) => String(s || '').split('\n').reduce((sum, l) => sum + Math.max(1, Math.ceil(l.length / per)), 0);
+
 function ViewRows({ d }) {
-  return d.rows.map((r, i) => (
-    <tr key={i}>
-      <td className="c">{i + 1}</td>
-      <td className="l bl">{r.p}</td>
-      <td className="c bl">{r.unit}</td>
-      <td className="r bl">{r.a ? r.a.q : ''}</td>
-      <td className="r bl">{r.a ? fmt(r.a.u) : ''}</td>
-      <td className="r">{r.a ? fmt(r.a.t) : ''}</td>
-      <td className="r bl">{r.r ? r.r.q : ''}</td>
-      <td className="r bl">{r.r ? fmt(r.r.u) : ''}</td>
-      <td className="r">{r.r ? fmt(r.r.t) : ''}</td>
-    </tr>
-  ));
+  return d.rows.map((r, i) => {
+    if (r.c) {
+      return (
+        <tr key={i}>
+          <td className="c" style={{ verticalAlign: 'top' }}>{i + 1}</td>
+          <td className="l bl cm" colSpan={8}>{r.p}</td>
+        </tr>
+      );
+    }
+    return (
+      <tr key={i}>
+        <td className="c">{i + 1}</td>
+        <td className="l bl">{r.p}</td>
+        <td className="c bl">{r.unit}</td>
+        <td className="r bl">{r.a ? r.a.q : ''}</td>
+        <td className="r bl">{r.a ? fmt(r.a.u) : ''}</td>
+        <td className="r">{r.a ? fmt(r.a.t) : ''}</td>
+        <td className="r bl">{r.r ? r.r.q : ''}</td>
+        <td className="r bl">{r.r ? fmt(r.r.u) : ''}</td>
+        <td className="r">{r.r ? fmt(r.r.t) : ''}</td>
+      </tr>
+    );
+  });
+}
+
+// "+ Add row" (goods, max 9) and "+ Add comment" (unlimited)
+function AddButtons({ e }) {
+  return (
+    <>
+      {e.goodsCount < 9 && <button type="button" className="rf-add" onClick={e.addRow}>+ Add row</button>}{' '}
+      <button type="button" className="rf-add" onClick={e.addComment}>+ Add comment</button>
+    </>
+  );
 }
 
 function EditRows({ d, e }) {
@@ -120,17 +147,37 @@ function EditRows({ d, e }) {
   const roR = (r) => [<td key="q" className="r g">{r && r.r ? r.r.q : ''}</td>, <td key="u" className="r g">{r && r.r ? fmt(r.r.u) : ''}</td>, <td key="t" className="r g">{r && r.r ? fmt(r.r.t) : ''}</td>];
   for (let i = 0; i < itemCount; i++) {
     const it = items[i]; const o = d.rows[i];
-    let cells;
+    const del = it && (it.isComment || e.goodsCount > 1)
+      ? <button type="button" className="rf-x" title="Remove row" onClick={() => e.delRow(i)}>×</button>
+      : null;
+    if (it && it.isComment) {
+      out.push(
+        <tr key={i}>
+          <td className="c" style={{ verticalAlign: 'top' }}>{i + 1}{del}</td>
+          <td colSpan={8}>
+            <textarea
+              className="cmt"
+              rows={Math.max(2, countLines(it.particulars))}
+              maxLength={600}
+              placeholder="Comment (multi line). No unit / qty / price / amount."
+              value={it.particulars}
+              onChange={(ev) => setItem(i, 'particulars', ev.target.value)}
+            />
+          </td>
+        </tr>
+      );
+      continue;
+    }
     if (it) {
       const mine = [
         <td key="q"><input className="rt" value={it.qty} onChange={(ev) => setItem(i, 'qty', ev.target.value)} /></td>,
         <td key="u"><input className="rt" value={it.unitPrice} onChange={(ev) => setItem(i, 'unitPrice', ev.target.value)} /></td>,
         <td key="t" className="r">{fmt(n0(it.qty) * n0(it.unitPrice))}</td>,
       ];
-      cells = isA ? [...mine, ...roR(o)] : [...roA(o), ...mine];
+      const cells = isA ? [...mine, ...roR(o)] : [...roA(o), ...mine];
       out.push(
         <tr key={i}>
-          <td className="c">{i + 1}{items.length > 1 && <button type="button" className="rf-x" title="Remove row" onClick={() => e.delRow(i)}>×</button>}</td>
+          <td className="c">{i + 1}{del}</td>
           <td><input value={it.particulars} onChange={(ev) => setItem(i, 'particulars', ev.target.value)} /></td>
           <td><input className="ct" value={it.unit} onChange={(ev) => setItem(i, 'unit', ev.target.value)} /></td>
           {cells}
@@ -140,7 +187,7 @@ function EditRows({ d, e }) {
       out.push(
         <tr key={i}>
           <td className="c">{i + 1}</td>
-          <td>{i === items.length && <button type="button" className="rf-add" onClick={e.addRow}>+ Add row</button>}</td>
+          <td>{i === items.length && <AddButtons e={e} />}</td>
           <td />{[...Array(6)].map((_, k) => <td key={k} />)}
         </tr>
       );
@@ -282,10 +329,10 @@ export default function RequestForm({ d, edit }) {
             </tr>
           </tbody>
         </table>
-        {/* all 9 base rows are used -> no empty row left to hold the button, so show it under the table */}
+        {/* all base rows are used -> no empty row left to hold the buttons, so show them under the table */}
         {e && e.items.length >= 9 && (
           <div className="rf-addbar noprint">
-            <button type="button" className="rf-add" onClick={e.addRow}>+ Add row</button>
+            <AddButtons e={e} />
           </div>
         )}
 

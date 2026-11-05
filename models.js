@@ -7,7 +7,8 @@
 //   Category  1 ---- * Bill          bill.categoryId  (Category._id as string,
 //   Category  1 ---- * LedgerEntry   entry.categoryId kept as string so existing
 //                                    documents keep working)
-//   Category  1 ---- * Item          item.categoryId  (each Goods/Services row has its own category)
+//   Category  1 ---- * Item          item.categoryId  (each Goods/Services row has its own category;
+//                                    comment rows have none)
 //   Bill      1 ----  1 Application  bill.application  (embedded document)
 //   Bill      1 ----  0..1 Resolution bill.resolution  (embedded document)
 //   Bill      1 ---- * File          bill.files        (embedded array)
@@ -61,7 +62,9 @@ const supplierSchema = new Schema(
 );
 
 // --- Bill: application / resolution documents -----------------------------
-// One row of the bill (max 9 rows, amounts recalculated server-side by lib/calc)
+// One row of the bill. Goods rows: max 9 (amounts recalculated server-side by lib/calc).
+// Comment rows (isComment = true): free multi-line text only, no unit / qty / price / amount / category,
+// not counted in the 9 row limit, never part of subtotal, AIT, VAT, TAX or the ledger.
 // categoryId: Category._id (string). Old bills have no item category -> they fall
 // back to bill.categoryId (see lib/billService.js ledgerSplit and app/new/page.js).
 const itemSchema = new Schema(
@@ -72,6 +75,7 @@ const itemSchema = new Schema(
     qty: { type: Number, default: 0 },
     unitPrice: { type: Number, default: 0 },
     amount: { type: Number, default: 0 },
+    isComment: { type: Boolean, default: false }, // old bills have no field -> false
   },
   { _id: false }
 );
@@ -139,8 +143,8 @@ const billSchema = new Schema(
     nrb: new Schema({ n: { type: String, default: 'Y' }, r: { type: String, default: 'Y' }, b: { type: String, default: 'Y' } }, { _id: false }),
     department: { type: String, default: '' },
     ledgerMonth: { type: String, default: '' }, // 'YYYY-MM'
-    // bill-level category = category of the FIRST item (kept for old bills / old code).
-    // The real category of every row is item.categoryId.
+    // bill-level category = category of the FIRST goods item (kept for old bills / old code).
+    // The real category of every goods row is item.categoryId.
     categoryId: { type: String, ref: 'Category', default: '' },
     application: billDocSchema,
     resolution: billDocSchema,
@@ -162,7 +166,7 @@ const billSchema = new Schema(
 billSchema.index({ billNo: 1 }, { unique: true });
 
 // --- LedgerEntry: one row of the monthly ledger grid ----------------------
-// A bill creates ONE entry PER CATEGORY used by its items (billNo is not unique here).
+// A bill creates ONE entry PER CATEGORY used by its goods items (billNo is not unique here).
 const ledgerEntrySchema = new Schema(
   {
     fiscalYear: { type: String, default: '' }, // '2025-2026' (July - June)

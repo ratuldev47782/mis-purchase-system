@@ -10,8 +10,11 @@ import CategorySelect from '@/app/components/CategorySelect';
 import { paperRows } from '@/lib/paper';
 
 const blank = () => ({ particulars: '', unit: '', qty: '', unitPrice: '', categoryId: '' });
+// comment row: free text only (no unit / qty / price / category)
+const blankComment = () => ({ isComment: true, particulars: '', unit: '', qty: '', unitPrice: '', categoryId: '' });
 const extraInit = (x) => ({ on: !!(x && x.on), mode: (x && x.mode) || 'amount', value: x && x.value ? x.value : '' });
 const n0 = (v) => Number(v) || 0;
+const MAX_GOODS = 9;
 
 /* ---------------- Theme: Flat Teal & Zinc (Tailwind only) ---------------- */
 const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/40';
@@ -140,12 +143,16 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
     department: bill?.department || '', nrb: bill?.nrb || { n: 'Y', r: 'Y', b: 'Y' },
     ledgerMonth: bill?.ledgerMonth || todayStr().slice(0, 7),
   });
-  // old bills: items without their own category fall back to the bill-level category
-  const [items, setItems] = useState(src ? src.items.map((i) => ({ ...i, categoryId: i.categoryId || bill?.categoryId || '' })) : [blank()]);
+  // old bills: goods items without their own category fall back to the bill-level category (comment rows have none)
+  const [items, setItems] = useState(
+    src ? src.items.map((i) => ({ ...i, categoryId: i.isComment ? '' : i.categoryId || bill?.categoryId || '' })) : [blank()]
+  );
   const [ait, setAit] = useState(!!(src && src.ait && src.ait.on));
   const [vat, setVat] = useState(extraInit(src && src.vat));
   const [tax, setTax] = useState(extraInit(src && src.tax));
+
   const [remarks, setRemarks] = useState(bill && kind === 'resolutionA' ? bill.resolution?.remarks || '' : src?.remarks || '');
+
   const [pay, setPay] = useState({
     advancePaid: bill?.application && kind === 'application' && src ? src.advancePaid : (src && kind === 'resolutionB' ? src.advancePaid : ''),
     paymentDate: src?.paymentDate || '', settleDate: src?.settleDate || '', budgetAccount: src?.budgetAccount || '', budgetRemaining: src?.budgetRemaining || '',
@@ -156,6 +163,7 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
   const calc = useMemo(() => calcDoc(doc), [items, ait, vat, tax]); // eslint-disable-line
   const setItem = (i, k, v) => setItems(items.map((it, n) => (n === i ? { ...it, [k]: v } : it)));
   const H = (k) => (e) => setHead({ ...head, [k]: e.target.value });
+  const goodsCount = items.filter((i) => !i.isComment).length;
 
   const addSupplier = async (e) => {
     if (e.target.value !== '__new') return H('supplierId')(e);
@@ -165,7 +173,7 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
 
   const submit = async (e) => {
     e.preventDefault(); setErr('');
-    const missing = items.findIndex((i) => (i.particulars || i.qty || i.unitPrice) && !i.categoryId);
+    const missing = items.findIndex((i) => !i.isComment && (i.particulars || i.qty || i.unitPrice) && !i.categoryId);
     if (missing >= 0) { setErr(`Select the Ledger category for item ${missing + 1}`); return; }
     setBusy(true);
     try {
@@ -184,7 +192,9 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
 
   // ---- data for the paper form (edited side = live values, other side = saved values) ----
   const mine = {
-    items: items.map((i) => ({ particulars: i.particulars, unit: i.unit, qty: n0(i.qty), unitPrice: n0(i.unitPrice), amount: calcAmount(i.qty, i.unitPrice) })),
+    items: items.map((i) => (i.isComment
+      ? { isComment: true, particulars: i.particulars, unit: '', qty: 0, unitPrice: 0, amount: 0 }
+      : { particulars: i.particulars, unit: i.unit, qty: n0(i.qty), unitPrice: n0(i.unitPrice), amount: calcAmount(i.qty, i.unitPrice) })),
     ait: { on: ait, amount: calc.ait.amount }, vat: { ...vat, amount: calc.vat.amount }, tax: { ...tax, amount: calc.tax.amount },
   };
   const A = isRes ? bill?.application || null : mine;
@@ -200,8 +210,14 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
   };
   const edit = {
     side: isRes ? 'resolution' : 'application', lock: lockHead, head, setHead, pay, setPay, applicants,
-    items, setItem, addRow: () => setItems([...items, blank()]),
-    delRow: (i) => items.length > 1 && setItems(items.filter((_, n) => n !== i)),
+    items, setItem, goodsCount,
+    // goods rows: max 9. Comment rows: unlimited, not counted.
+    addRow: () => goodsCount < MAX_GOODS && setItems([...items, blank()]),
+    addComment: () => setItems([...items, blankComment()]),
+    delRow: (i) => {
+      const rest = items.filter((_, n) => n !== i);
+      if (rest.some((x) => !x.isComment)) setItems(rest); // always keep at least one goods row
+    },
     ait, setAit, vat, setVat, tax, setTax, calc, remarks, setRemarks, advanceEditable: kind !== 'resolutionA',
   };
 
@@ -214,6 +230,7 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
       <div className="min-w-0">
         <div className="noprint mb-2 text-xs text-zinc-500">
           {isRes ? 'Fill the RESOLUTION columns of the form.' : 'Fill the APPLICATION columns of the form.'} Blue cells are inputs, grey cells are read only.
+          Use &quot;+ Add comment&quot; for a text-only note row (no unit, qty, price or category).
         </div>
         <div className="overflow-x-auto rounded-md border border-zinc-300 bg-white p-2 print:overflow-visible print:border-0 print:p-0">
           <RequestForm d={d} edit={edit} />
@@ -253,20 +270,21 @@ function BillForm({ kind, bill, suppliers, categories, applicants, nextBillNo, r
             <input type="month" value={head.ledgerMonth} onChange={H('ledgerMonth')} className={INPUT} />
           </label>
 
-          {/* ledger category of every item row (only used by the IT Accessories ledger, not printed on the form) */}
+          {/* ledger category of every goods row (only used by the IT Accessories ledger, not printed on the form).
+              Comment rows are skipped: they have no category. */}
           <div className="rounded-md border border-zinc-300 bg-zinc-50 p-2">
             <div className={`mb-1.5 ${TITLE}`}>
               Ledger category (per item)
             </div>
             <div className="space-y-2">
-              {items.map((it, i) => (
+              {items.map((it, i) => (it.isComment ? null : (
                 <div key={i}>
                   <div className="truncate text-[11px] text-zinc-600" title={it.particulars}>
                     {i + 1}. {it.particulars || '(item name not typed yet)'}
                   </div>
                   <CategorySelect categories={categories} value={it.categoryId} onChange={(v) => setItem(i, 'categoryId', v)} />
                 </div>
-              ))}
+              )))}
             </div>
           </div>
 
